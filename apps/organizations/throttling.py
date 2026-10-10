@@ -1,6 +1,7 @@
 """DB-backed login limits shared by all workers; keys contain no raw identities."""
 import hashlib
 import hmac
+import ipaddress
 from datetime import timedelta
 from django.conf import settings
 from django.db import transaction
@@ -9,12 +10,27 @@ from .models import LoginThrottle
 
 WINDOW=timedelta(minutes=15)
 
+def client_address(request):
+    raw=request.META.get('REMOTE_ADDR','')
+    try: address=ipaddress.ip_address(raw)
+    except ValueError: return 'unknown'
+    trusted=set()
+    for item in settings.TRUSTED_PROXY_IPS:
+        try: trusted.add(ipaddress.ip_address(item))
+        except ValueError: continue
+    if address in trusted:
+        try: address=ipaddress.ip_address(request.META.get('HTTP_X_REAL_IP',''))
+        except ValueError: pass
+    return str(address)
+
 def keys(request):
     org=getattr(request,'organization',None)
     scope=str(org.pk) if org else 'global'
-    username=str(request.POST.get('username','')).strip().casefold()[:150]
-    # Use the connection address; forwarding headers are not trusted here.
-    ip=request.META.get('REMOTE_ADDR','unknown')
+    username=str(request.POST.get('username','')).strip()[:150]
+    prefix='org'+str(org.pk)+'__' if org else ''
+    if prefix and username.startswith(prefix): username=username[len(prefix):]
+    username=username.casefold()
+    ip=client_address(request)
     result=[]
     for kind,value,threshold in [('account',username,5),('ip',ip,20)]:
         digest=hmac.new(settings.SECRET_KEY.encode(),f'{scope}|{kind}|{value}'.encode(),hashlib.sha256).hexdigest()

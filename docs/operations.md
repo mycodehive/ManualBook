@@ -28,6 +28,7 @@ DATABASE_URL=postgresql://manualbook:<URL-escaped-password>@127.0.0.1:5432/manua
 DJANGO_ALLOWED_HOSTS=manualbook.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://manualbook.example.com
 DJANGO_TRUST_PROXY=true
+DJANGO_TRUSTED_PROXY_IPS=127.0.0.1,::1
 DJANGO_SECURE_SSL_REDIRECT=true
 DJANGO_SECURE_HSTS_SECONDS=0
 DJANGO_STATIC_ROOT=/var/lib/manualbook/static
@@ -78,4 +79,4 @@ Nginx 템플릿의 도메인·인증서 경로를 실제 값으로 바꾸고 인
 
 ## 조직 이관 및 로그인 제한
 단일 조직 버전에서 업데이트하면 기존 데이터와 계정·그룹은 legacy 조직에 귀속됩니다. 쓰기를 중지하고 DB와 private media를 함께 백업한 후 migrate를 실행하고 /o/legacy/login/에서 기존 계정으로 동작을 검증합니다.
-로그인 실패 제한은 조직/아이디·조직/접속 IP의 해시 키를 DB에 저장합니다. 운영자는 주기적으로 24시간 이상 지난 LoginThrottle 레코드를 삭제할 수 있습니다. 글로벌 관리자 잠금이 발생하면 15분 대기 또는 신뢰된 운영 콘솔에서 해당 레코드를 정리합니다. IP는 REMOTE_ADDR이므로 프록시가 연결 주소를 전달하지 않는 환경에서는 공유 프록시 IP의 한도를 검토하세요. X-Forwarded-For는 임의로 신뢰하지 않습니다.
+로그인 실패 제한은 조직/아이디·조직/접속 IP의 해시 키를 DB에 저장합니다. 운영자는 주기적으로 24시간 이상 지난 LoginThrottle 레코드를 삭제할 수 있습니다. 글로벌 관리자 잠금이 발생하면 15분 대기 또는 신뢰된 운영 콘솔에서 해당 레코드를 정리합니다. 직접 연결된 nginx의 소켓 IP를 DJANGO_TRUSTED_PROXY_IPS에 지정하면 nginx가 덮어쓴 X-Real-IP를 검증해 사용합니다. 다른 소켓에서 보내는 헤더는 무시합니다. 프록시 IP를 정확히 설정하지 않으면 공유 프록시 주소의 한도가 적용됩니다. X-Forwarded-For는 임의로 신뢰하지 않습니다.

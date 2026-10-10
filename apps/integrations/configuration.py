@@ -5,7 +5,7 @@ from django.db import transaction
 from django.core.exceptions import ValidationError, PermissionDenied
 from .models import Connection, DataResource, FeatureBinding
 from .forms import FeatureBindingForm
-from .services import can_manage, save_binding
+from .services import can_manage, save_binding, require_binding_scope
 from .validation import validate_options
 from apps.core.services import audit
 
@@ -21,6 +21,7 @@ def export_configuration(actor):
         validate_options(resource.config);validate_options(resource.schema)
         result['resources'].append({'name':resource.name,'connection':resource.connection.name,'external_id':resource.external_id,'config':resource.config,'schema':resource.schema})
     for binding in FeatureBinding.objects.filter(connection__in=connections).select_related('connection','data_resource'):
+        require_binding_scope(binding)
         validate_options(binding.config);validate_options(binding.field_mapping)
         result['bindings'].append({'feature_code':binding.feature_code,'connection':binding.connection.name,'resource':binding.data_resource.name if binding.data_resource else None,'resource_id':binding.resource_id,'config':binding.config,'field_mapping':binding.field_mapping})
     return result

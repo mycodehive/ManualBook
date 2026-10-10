@@ -64,7 +64,7 @@ def member_edit(request,pk=None):
                 saved=form.save(commit=False)
                 if obj:
                     previous=Membership.objects.get(pk=obj.pk)
-                    if previous.role=='admin' and previous.active and not (saved.role=='admin' and saved.active) and Membership.objects.filter(role='admin',active=True).count()<=1:
+                    if previous.role=='admin' and previous.active and not (saved.role=='admin' and saved.active) and Membership.objects.filter(role='admin',active=True,user__is_active=True).count()<=1:
                         raise ValidationError('마지막 활성 조직 관리자는 해제할 수 없습니다.')
                 else:
                     data=form.cleaned_data

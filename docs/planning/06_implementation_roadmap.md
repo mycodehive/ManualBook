@@ -18,10 +18,10 @@
 
 ## 다음 티켓
 1. PostgreSQL에서 다중 작성자/승인자 트랜잭션과 optimistic locking 검증.
-2. 노드별 ACL 관리 UI와 deny·상속 진리표 회귀 확대.
+2. 구현된 노드별 ACL 관리 UI의 deny·상속 진리표 회귀 확대.
 3. Tiptap 고급 서식 보존/드래그 트리와 접근성 E2E.
 4. DOCX/ZIP import 및 PDF export의 격리 worker/총 중첩 해제량/시간 제한.
 5. 한국어 검색 대표 질의 데이터와 index 성능 비교.
-6. 운영자 계정 MFA/로그인 rate limit 및 observability.
+6. 운영자 계정 MFA 및 observability; 구현된 로그인 실패 제한의 운영 프록시 검증.
 
 운영 진입 기준은 구현된 기능 테스트 통과, 미구현 기능 공개적 명시, PostgreSQL restore 성공, 비공개 media/HTTPS, 책임자·RPO/RTO 확정이다.

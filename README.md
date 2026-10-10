@@ -43,7 +43,7 @@ uv run python manage.py test
 uv run python manage.py collectstatic --noinput
 ```
 
-편집기 JS 수정 시 Node.js 환경에서 `npm ci` 및 `npm run build`로 로컬 번들을 재생성합니다. `npm test`로 편집기·자동저장 DOM 회귀 검사를 실행합니다. 일반 Python 실행에는 저장소의 빌드된 번들을 사용합니다. CI는 SQLite/ PostgreSQL 테스트 및 의존성 audit를 설정합니다. CI 설정이 실제 GitHub 실행 성공을 의미하지는 않습니다.
+편집기 JS 수정 시 Node.js 환경에서 `npm ci` 및 `npm run build`로 로컬 번들을 재생성합니다. `npm test`로 편집기·자동저장 DOM 회귀 검사를 실행합니다. 일반 Python 실행에는 저장소의 빌드된 번들을 사용합니다. CI는 SQLite/PostgreSQL 테스트 및 의존성 audit를 실행합니다. 검증 결과와 제한 사항은 [검증 기록](docs/verification.md)을 참조하세요.
 
 ## 조직 운영
 

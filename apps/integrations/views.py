@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 from apps.core.services import audit
 from .models import Connection, DataResource, FeatureBinding
 from .forms import ConnectionForm, DataResourceForm, FeatureBindingForm
-from .services import save_binding, can_manage
+from .services import save_binding, can_manage, require_binding_scope
 staff=user_passes_test(is_org_admin)
 @login_required
 @staff
@@ -23,6 +23,7 @@ def edit(request, kind, pk=None):
         raise Http404
     model, form_class=classes[kind]
     obj=get_object_or_404(model,pk=pk) if pk else None
+    if kind=='binding' and obj: require_binding_scope(obj)
     connection = obj if kind=='connection' else obj.connection if obj else None
     if connection and not can_manage(request.user,connection):
         from django.core.exceptions import PermissionDenied

@@ -57,6 +57,20 @@ class TenantIsolationTests(TestCase):
     def denied(self,response):
         self.assertIn(response.status_code,(403,404),response.content[:500])
 
+    def test_org_admin_can_create_spaces_and_forms_show_human_group_names(self):
+        from django.urls import reverse
+        self.client.force_login(self.a_admin)
+        response=self.client.get(self.url(self.a,reverse('manuals:spaces')))
+        self.assertContains(response,self.url(self.a,reverse('manuals:space_create')))
+        for path in [reverse('manuals:space_settings',args=[self.tenants['alpha']['space'].pk]),reverse('menu_create'),reverse('integration_create',args=['connection'])]:
+            response=self.client.get(self.url(self.a,path))
+            self.assertEqual(response.status_code,200)
+            self.assertContains(response,'Editors')
+            self.assertNotContains(response,'org:'+str(self.a.pk)+':')
+        self.client.force_login(self.a_user)
+        response=self.client.get(self.url(self.a,reverse('manuals:spaces')))
+        self.assertNotContains(response,self.url(self.a,reverse('manuals:space_create')))
+
     def test_default_manager_without_context_returns_no_tenant_rows(self):
         with organization_scope(None):
             for model in [Membership,OrganizationGroup,Department,SiteConfiguration,AuditEvent,Menu,Connection,DataResource,FeatureBinding,ManualSpace,ManualNode,ManualRevision,ManualAttachment,ApprovalRequest]:
@@ -124,12 +138,14 @@ class TenantIsolationTests(TestCase):
 
     def test_cross_tenant_foreign_keys_are_rejected(self):
         a=self.tenants['alpha'];b=self.tenants['beta']
+        with organization_scope(self.b):
+            foreign_folder=ManualNode.objects.create(space=b['space'],title='Foreign folder',kind='folder')
         with organization_scope(self.a):
             invalid=[
                 ManualNode(organization=self.a,space=b['space'],title='wrong-space'),
-                ManualNode(organization=self.a,space=a['space'],parent=b['node'],title='wrong-parent'),
+                ManualNode(organization=self.a,space=a['space'],parent=foreign_folder,title='wrong-parent'),
                 ManualRevision(organization=self.a,node=b['node'],number=999,title='wrong-node',author=self.a_admin),
-                ManualAttachment(organization=self.a,node=a['node'],revision=b['revision'],file='fixture.txt',name='wrong-revision'),
+                ManualAttachment(organization=self.a,node=a['node'],revision=b['revision'],file='fixture.txt',name='wrong-revision',author=self.a_admin),
                 FeatureBinding(organization=self.a,feature_code='wrong-connection',connection=b['connection']),
                 Membership(organization=self.a,user=self.b_user,department=b['department'],role='member'),
             ]
@@ -245,6 +261,8 @@ class TenantIsolationTests(TestCase):
         blocked=self.client.post(self.url(self.a,'/login/'),{'username':'same-user','password':'Unique-test-password-942!'})
         self.assertEqual(blocked.status_code,429)
         self.assertIn('Retry-After',blocked)
+        internal=organization_username(self.a,'same-user')
+        self.assertEqual(self.client.post(self.url(self.a,'/login/'),{'username':internal,'password':'Unique-test-password-942!'}).status_code,429)
         self.assertEqual(self.client.post(self.url(self.b,'/login/'),{'username':'same-user','password':'Unique-test-password-942!'}).status_code,302)
 
     def test_short_username_login_requires_its_own_organization(self):
@@ -294,3 +312,57 @@ class TenantIsolationTests(TestCase):
                 with self.assertRaises(PermissionDenied): query()
         with organization_scope(None):
             with self.assertRaises(PermissionDenied): list(queryset)
+
+    def test_inactive_historical_author_does_not_block_revision_attachment_copy(self):
+        a=self.tenants['alpha']
+        with organization_scope(self.a):
+            a['manager'].active=False;a['manager'].save()
+            self.a_admin.is_active=False;self.a_admin.save()
+            saved=save_revision(self.superuser,a['node'].pk,'New revision','Updated body',1)
+            copied=ManualAttachment.objects.get(revision=saved)
+            self.assertEqual(copied.author_id,self.a_admin.pk)
+            self.assertEqual(copied.organization_id,self.a.pk)
+
+    def test_iterator_and_model_reuse_cannot_cross_organization_scope(self):
+        node=self.tenants['alpha']['node']
+        with organization_scope(self.a):
+            stream=ManualNode.objects.iterator()
+        with organization_scope(self.b):
+            with self.assertRaises(PermissionDenied): next(stream)
+            with self.assertRaises(ValidationError): node.delete()
+            with self.assertRaises(PermissionDenied): node.refresh_from_db()
+        with organization_scope(self.a): self.assertTrue(ManualNode.objects.filter(pk=node.pk).exists())
+
+    def test_login_limit_uses_vetted_proxy_ip_and_normalizes_account_alias(self):
+        from django.test import RequestFactory
+        from .throttling import client_address, keys
+        request=RequestFactory().post(self.url(self.a,'/login/'),{'username':'local-user'},REMOTE_ADDR='127.0.0.1',HTTP_X_REAL_IP='192.0.2.4')
+        request.organization=self.a
+        with self.settings(TRUSTED_PROXY_IPS=['127.0.0.1']):
+            self.assertEqual(client_address(request),'192.0.2.4')
+            other=RequestFactory().post(self.url(self.a,'/login/'),{'username':'local-user'},REMOTE_ADDR='127.0.0.1',HTTP_X_REAL_IP='192.0.2.5')
+            other.organization=self.a
+            self.assertNotEqual(keys(request)[1][0],keys(other)[1][0])
+            other.POST=other.POST.copy();other.POST['username']='org'+str(self.a.pk)+'__local-user'
+            self.assertEqual(keys(request)[0][0],keys(other)[0][0])
+        request.META['REMOTE_ADDR']='192.0.2.9'
+        with self.settings(TRUSTED_PROXY_IPS=['127.0.0.1']): self.assertEqual(client_address(request),'192.0.2.9')
+
+    def test_superuser_authenticates_at_global_login_only(self):
+        data={'username':'global-admin','password':'tenant-test-password!'}
+        self.assertEqual(self.client.post(self.url(self.a,'/login/'),data).status_code,200)
+        self.assertNotIn('_auth_user_id',self.client.session)
+        self.assertEqual(self.client.post('/login/',data).status_code,302)
+        self.assertEqual(self.client.get(self.url(self.a,'/settings/')).status_code,200)
+
+    def test_corrupt_foreign_binding_resource_is_never_resolved_or_exported(self):
+        a=self.tenants['alpha'];b=self.tenants['beta']
+        with organization_scope(self.b):
+            foreign=DataResource.objects.create(connection=b['connection'],name='BETA-PRIVATE-RESOURCE',external_id='BETA-SECRET-ID')
+        with organization_scope(self.a):
+            binding=FeatureBinding.objects.create(feature_code='manuals.ai',connection=a['connection'])
+            FeatureBinding.all_objects.filter(pk=binding.pk).update(data_resource_id=foreign.pk)
+            from apps.integrations.services import resolve_binding
+            from apps.integrations.configuration import export_configuration
+            with self.assertRaises(PermissionDenied): resolve_binding('manuals.ai',self.a_admin)
+            with self.assertRaises(PermissionDenied): export_configuration(self.a_admin)

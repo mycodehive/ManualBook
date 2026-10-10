@@ -4,6 +4,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from apps.organizations.models import OrganizationGroup, Membership
 from apps.organizations.scoping import current_organization
+from apps.organizations.labels import set_group_choices_label, user_label
 from .models import ManualSpace, ManualNode, ManualPermissionAssignment
 
 class ManualScopedForm(forms.ModelForm):
@@ -26,6 +27,7 @@ class SpaceForm(ManualScopedForm):
         ids=OrganizationGroup.objects.filter(organization=self.organization).values_list('group_id',flat=True)
         for name in ['view_groups','edit_groups','approve_groups']:
             self.fields[name].queryset=Group.objects.filter(pk__in=ids)
+            set_group_choices_label(self.fields[name],self.organization)
 
 class NodeForm(ManualScopedForm):
     class Meta:
@@ -47,8 +49,10 @@ class PermissionForm(ManualScopedForm):
         super().__init__(*args,**kwargs)
         ids=OrganizationGroup.objects.filter(organization=self.organization).values_list('group_id',flat=True)
         self.fields['group'].queryset=Group.objects.filter(pk__in=ids)
+        set_group_choices_label(self.fields['group'],self.organization)
         members=Membership.objects.filter(organization=self.organization,active=True).values_list('user_id',flat=True)
         self.fields['user'].queryset=get_user_model().objects.filter(pk__in=members,is_active=True)
+        self.fields['user'].label_from_instance=user_label
     def clean(self):
         data=super().clean()
         if bool(data.get('group'))==bool(data.get('user')): raise forms.ValidationError('그룹 또는 사용자 중 하나만 선택하세요.')
