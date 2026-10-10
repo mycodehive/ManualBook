@@ -231,3 +231,56 @@ class TenantIsolationTests(TestCase):
         self.assertContains(response,'/o/alpha/manuals/spaces/')
         self.assertNotContains(response,'/o/beta/')
         self.assertIsNone(current_organization())
+
+    def test_repeated_login_failures_are_limited_per_organization(self):
+        from .backends import organization_username
+        with organization_scope(self.a):
+            user=get_user_model().objects.create_user(organization_username(self.a,'same-user'),password='Unique-test-password-942!')
+            Membership.objects.create(user=user)
+        with organization_scope(self.b):
+            user=get_user_model().objects.create_user(organization_username(self.b,'same-user'),password='Unique-test-password-942!')
+            Membership.objects.create(user=user)
+        for _ in range(5):
+            self.assertEqual(self.client.post(self.url(self.a,'/login/'),{'username':'same-user','password':'wrong'}).status_code,200)
+        blocked=self.client.post(self.url(self.a,'/login/'),{'username':'same-user','password':'Unique-test-password-942!'})
+        self.assertEqual(blocked.status_code,429)
+        self.assertIn('Retry-After',blocked)
+        self.assertEqual(self.client.post(self.url(self.b,'/login/'),{'username':'same-user','password':'Unique-test-password-942!'}).status_code,302)
+
+    def test_short_username_login_requires_its_own_organization(self):
+        from .backends import organization_username
+        with organization_scope(self.a):
+            user=get_user_model().objects.create_user(organization_username(self.a,'local-user'),password='Unique-test-password-942!')
+            Membership.objects.create(user=user)
+        self.assertEqual(self.client.post(self.url(self.b,'/login/'),{'username':'local-user','password':'Unique-test-password-942!'}).status_code,200)
+        self.assertEqual(self.client.post('/login/',{'username':user.username,'password':'Unique-test-password-942!'}).status_code,200)
+        self.assertEqual(self.client.post(self.url(self.a,'/login/'),{'username':'local-user','password':'Unique-test-password-942!'}).status_code,302)
+
+    def test_last_active_organization_admin_cannot_be_demoted(self):
+        member=self.tenants['alpha']['manager']
+        self.client.force_login(self.a_admin)
+        response=self.client.post(self.url(self.a,f'/organization/members/{member.pk}/edit/'),{'role':'member','active':'on','username':'a-admin'})
+        self.assertEqual(response.status_code,200)
+        with organization_scope(self.a):
+            member.refresh_from_db()
+            self.assertEqual(member.role,'admin')
+
+    def test_global_admin_registers_organization_and_first_local_admin(self):
+        self.client.force_login(self.superuser)
+        response=self.client.post('/organizations/create/',{'name':'New Company','slug':'new-company','active':'on','admin_username':'admin','admin_email':'admin@example.test','admin_password':'Unique-company-password-827!','confirmation':'Unique-company-password-827!'})
+        self.assertEqual(response.status_code,302,response.content[:500])
+        org=Organization.objects.get(slug='new-company')
+        with organization_scope(org):
+            member=Membership.objects.get(role='admin')
+            self.assertEqual(member.display_username,'admin')
+            self.assertFalse(member.user.is_staff)
+            self.assertFalse(member.user.is_superuser)
+            self.assertEqual(Menu.objects.filter(code='dashboard').count(),1)
+            self.assertEqual(SiteConfiguration.objects.get().name,'New Company')
+        self.client.logout()
+        self.assertEqual(self.client.post(self.url(org,'/login/'),{'username':'admin','password':'Unique-company-password-827!'}).status_code,302)
+
+    def test_organization_admin_cannot_create_global_organization(self):
+        self.client.force_login(self.a_admin)
+        self.denied(self.client.post('/organizations/create/',{'name':'Unauthorized','slug':'unauthorized'}))
+        self.assertFalse(Organization.objects.filter(slug='unauthorized').exists())

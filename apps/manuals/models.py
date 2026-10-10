@@ -86,10 +86,15 @@ class ApprovalRequest(ScopedModel):
             if previous.revision_id!=self.revision_id or previous.requester_id!=self.requester_id: raise ValidationError('검토 대상 버전과 요청자는 변경할 수 없습니다.')
         return super().save(*args,**kwargs)
 
+def tenant_attachment_path(instance,filename):
+    from pathlib import Path
+    instance._validate_scope()
+    return f'organizations/{instance.organization_id}/manual_private/{uuid.uuid4().hex}{Path(filename).suffix.lower()}'
+
 class ManualAttachment(ScopedModel):
     node = models.ForeignKey(ManualNode, on_delete=models.CASCADE, related_name='attachments')
     revision = models.ForeignKey(ManualRevision, on_delete=models.CASCADE, related_name='attachments')
-    file = models.FileField(upload_to='manual_private/%Y/%m/')
+    file = models.FileField(upload_to=tenant_attachment_path)
     name = models.CharField(max_length=200)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
 

@@ -31,7 +31,7 @@
         <div class="toolbar-end">
             <button type="button" class="icon-button" data-theme-toggle aria-label="화면 테마 변경" aria-pressed="false">◐</button>
             <div class="user-menu">
-                <button type="button" class="user-menu-button" data-user-menu-trigger aria-expanded="false" aria-controls="user-menu-panel"><span class="user-avatar">{{ user.username|first|upper }}</span>{% if user.last_name or user.first_name %}{{ user.last_name }}{{ user.first_name }}{% else %}{{ user.username }}{% endif %} <span aria-hidden="true">⌄</span></button>
+                <button type="button" class="user-menu-button" data-user-menu-trigger aria-expanded="false" aria-controls="user-menu-panel"><span class="user-avatar">{{ display_username|first|upper }}</span>{% if user.last_name or user.first_name %}{{ user.last_name }}{{ user.first_name }}{% else %}{{ display_username }}{% endif %} <span aria-hidden="true">⌄</span></button>
                 <div class="user-menu-panel" id="user-menu-panel" data-user-menu-panel hidden>
                     <a href="{% url 'account_profile' %}">내 정보 수정</a>
                     <a href="{% url 'account_password_change' %}">비밀번호 변경</a>

@@ -63,3 +63,9 @@ class Membership(ScopedModel):
     def display_username(self):
         prefix='org'+str(self.organization_id)+'__'
         return self.user.username[len(prefix):] if self.user.username.startswith(prefix) else self.user.username
+
+class LoginThrottle(models.Model):
+    key=models.CharField(max_length=64,primary_key=True)
+    failures=models.PositiveIntegerField(default=0)
+    window_started=models.DateTimeField()
+    locked_until=models.DateTimeField(null=True,blank=True)

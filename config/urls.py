@@ -3,6 +3,8 @@ from django.http import JsonResponse
 from django.urls import include, path
 from django.shortcuts import redirect
 
+from apps.accounts.views import OrganizationLoginView
+admin.site.login = OrganizationLoginView.as_view()
 admin.site.has_permission = lambda request: bool(request.user.is_active and request.user.is_superuser)
 
 urlpatterns = [
