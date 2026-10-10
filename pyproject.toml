@@ -7,7 +7,6 @@ dependencies = [
   "Django>=5.2,<5.3",
   "python-dotenv>=1.2,<2",
   "dj-database-url>=3,<4",
-  "psycopg[binary]>=3.2,<4",
   "cryptography>=44",
   "bleach>=6.2,<7",
   "Markdown>=3.7,<4",
@@ -16,6 +15,9 @@ dependencies = [
   "markdownify>=1.1,<2",
   "weasyprint>=70,<71",
 ]
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+mariadb = ["mysqlclient>=2.2.1,<3"]
 [dependency-groups]
 dev = ["ruff>=0.11", "pytest>=8", "pytest-django>=4.9"]
 [tool.ruff]

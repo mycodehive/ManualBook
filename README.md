@@ -20,7 +20,22 @@ uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
-사이트 최고 관리자 로그인: `http://127.0.0.1:8000/login/` (실제 URL은 `config/urls.py`). 기본 계정/비밀번호는 제공하지 않습니다. 운영에는 PostgreSQL·HTTPS·강력한 secret·암호화 키가 필수입니다. PDF에는 Ubuntu `libpango-1.0-0`, `libpangoft2-1.0-0`와 `fonts-noto-cjk`가 필요합니다.
+사이트 최고 관리자 로그인: `http://127.0.0.1:8000/login/` (실제 URL은 `config/urls.py`). 기본 계정/비밀번호는 제공하지 않습니다. 기본 DB는 SQLite입니다. PostgreSQL과 MariaDB는 선택 옵션이며, 운영에는 HTTPS·강력한 secret·암호화 키가 필요합니다. PDF에는 Ubuntu `libpango-1.0-0`, `libpangoft2-1.0-0`와 `fonts-noto-cjk`가 필요합니다.
+
+## DB 선택
+`DATABASE_URL`이 비어 있거나 없으면 프로젝트 폴더의 `db.sqlite3`를 사용합니다. SQLite는 별도 DB 서버나 드라이버 설치가 필요하지 않습니다. 상대 SQLite 경로도 프로젝트 폴더를 기준으로 처리합니다.
+
+| DB | 설치 | `.env` 설정 예시 |
+|---|---|---|
+| SQLite (기본) | `uv sync --frozen` | `DATABASE_URL=` |
+| PostgreSQL (선택) | `uv sync --frozen --extra postgres` | `DATABASE_URL=postgresql://USER:URL_ENCODED_PASSWORD@HOST:5432/DB` |
+| MariaDB (선택) | `uv sync --frozen --extra mariadb` | `DATABASE_URL=mysql://USER:URL_ENCODED_PASSWORD@HOST:3306/DB` |
+
+선택 DB로 실행할 때 `uv run --extra postgres ...` 또는 `uv run --extra mariadb ...`를 사용하세요. 예: `uv run --extra mariadb python manage.py migrate`. 일반 `uv run`은 선택 드라이버를 제거할 수 있습니다. MariaDB는 Django MySQL 백엔드와 `mysqlclient`를 사용하며 `mariadb://` 별칭도 허용합니다. Ubuntu의 MariaDB 드라이버 빌드에는 `python3-dev default-libmysqlclient-dev build-essential pkg-config`가 필요할 수 있습니다.
+
+SQLite 운영 경로는 release 코드 밖의 `DATABASE_URL=sqlite:////var/lib/manualbook/db.sqlite3`를 권장합니다. 서비스 계정에 부모 디렉터리 쓰기권한도 부여하세요. 기본 서비스는 worker 1개이며 SQLite 쓰기 트랜잭션은 IMMEDIATE, 잠금 대기 기본값은 20초입니다. PostgreSQL/MariaDB를 선택한 경우 worker 수는 부하 검증 후 조정하세요.
+
+DB 선택을 바꾸면 해당 DB에 연결하며 기존 데이터를 자동 복사하지 않습니다. 기존 데이터가 있으면 DB·첨부·암호화 키를 백업하고 별도 이관·복구 검증을 수행하세요. 상세 절차는 [운영 문서](docs/operations.md)를 참고하세요.
 
 ## 구현 범위
 - 참조 공통 셸, 상단/좌측 3단 동적 메뉴, 라이트/다크, 조직 브랜딩.
@@ -43,7 +58,7 @@ uv run python manage.py test
 uv run python manage.py collectstatic --noinput
 ```
 
-편집기 JS 수정 시 Node.js 환경에서 `npm ci` 및 `npm run build`로 로컬 번들을 재생성합니다. `npm test`로 편집기·자동저장 DOM 회귀 검사를 실행합니다. 일반 Python 실행에는 저장소의 빌드된 번들을 사용합니다. CI는 SQLite/PostgreSQL 테스트 및 의존성 audit를 실행합니다. 검증 결과와 제한 사항은 [검증 기록](docs/verification.md)을 참조하세요.
+편집기 JS 수정 시 Node.js 환경에서 `npm ci` 및 `npm run build`로 로컬 번들을 재생성합니다. `npm test`로 편집기·자동저장 DOM 회귀 검사를 실행합니다. 일반 Python 실행에는 저장소의 빌드된 번들을 사용합니다. CI는 SQLite/PostgreSQL/MariaDB 테스트 및 의존성 audit를 실행합니다. 검증 결과와 제한 사항은 [검증 기록](docs/verification.md)을 참조하세요.
 
 ## 조직 운영
 
@@ -65,4 +80,4 @@ uv run python manage.py collectstatic --noinput
 - `deploy/manualbook.service`, `deploy/nginx.conf`: 치환·검토가 필요한 운영 템플릿
 - `scripts/backup.sh`, `scripts/restore_verify.sh`: 유지보수 백업 및 빈 DB/디렉터리 복구 훈련
 
-배포 서버에 설치한 상태가 아닙니다. 운영 진입 전에 백업 복구 훈련, PostgreSQL 동시성, TLS/private media 및 권한 smoke를 검증하세요. 원본 UI 자산과 의존성의 배포 라이선스를 외부 배포 전에 확인해야 합니다.
+배포 서버에 설치한 상태가 아닙니다. 운영 진입 전에 백업 복구 훈련, 선택한 DB의 동시성, TLS/private media 및 권한 smoke를 검증하세요. 원본 UI 자산과 의존성의 배포 라이선스를 외부 배포 전에 확인해야 합니다.

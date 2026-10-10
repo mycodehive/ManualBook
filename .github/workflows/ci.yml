@@ -48,9 +48,37 @@ jobs:
         with:
           python-version: '3.12'
       - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-cjk
-      - run: uv sync --frozen
-      - run: uv run python manage.py migrate --noinput
-      - run: uv run python manage.py test
+      - run: uv sync --frozen --extra postgres
+      - run: uv run --extra postgres python manage.py migrate --noinput
+      - run: uv run --extra postgres python manage.py test
+  mariadb:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: ci-only-local-db-password
+          MARIADB_DATABASE: manualbook
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DJANGO_DEBUG: 'true'
+      DATABASE_URL: mysql://root:ci-only-local-db-password@127.0.0.1:3306/manualbook
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-cjk default-libmysqlclient-dev build-essential pkg-config
+      - run: uv sync --frozen --extra mariadb
+      - run: >-
+          uv run --extra mariadb python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings'); import django; django.setup(); from django.db import connection; connection.cursor().execute('ALTER DATABASE manualbook CHARACTER SET utf8mb4 COLLATE utf8mb4_bin')"
+      - run: uv run --extra mariadb python manage.py migrate --noinput
+      - run: uv run --extra mariadb python manage.py bootstrap
+      - run: uv run --extra mariadb python manage.py bootstrap
+      - run: uv run --extra mariadb python manage.py test
   editor:
     runs-on: ubuntu-latest
     steps:
@@ -69,5 +97,5 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
-      - run: uv export --frozen --no-dev --no-hashes --format requirements-txt > /tmp/manualbook-requirements.txt
-      - run: uvx pip-audit -r /tmp/manualbook-requirements.txt
+      - run: uv export --frozen --all-extras --no-dev --no-hashes --format requirements-txt > /tmp/manualbook-requirements.txt
+      - run: uvx pip-audit --no-deps --disable-pip -r /tmp/manualbook-requirements.txt
