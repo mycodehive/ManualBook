@@ -1,0 +1,16 @@
+<ul class="menu-list">
+    {% for menu in menus %}
+    <li class="menu-item">
+        {% if menu.visible_children %}
+        <details class="nav-group" data-menu-code="{{ menu.code }}" id="nav-group-{{ menu.pk }}"{% if menu.is_expanded %} open{% endif %}>
+            <summary><span>{{ menu.name }}</span><span class="nav-caret" aria-hidden="true">›</span></summary>
+            {% if menu.url and menu.url != '#' %}<a class="nav-overview" href="{{ menu.navigation_url }}"{% if menu.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ menu.name }} 전체 보기</a>{% endif %}
+            {% include 'partials/navigation.html' with menus=menu.visible_children %}
+        </details>
+        {% elif menu.url and menu.url != '#' %}
+        <a class="nav-link{% if menu.is_current %} active{% endif %}" href="{{ menu.navigation_url }}"{% if menu.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}{% if menu.is_current %} aria-current="page"{% endif %}>{{ menu.name }}</a>
+        {% else %}<span class="nav-label">{{ menu.name }}</span>{% endif %}
+    </li>
+    {% empty %}<li class="nav-empty">표시할 메뉴가 없습니다.</li>{% endfor %}
+</ul>
+

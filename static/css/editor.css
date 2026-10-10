@@ -1,0 +1,11 @@
+.block-editor{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);margin:12px 0}
+.editor-toolbar{display:flex;gap:5px;flex-wrap:wrap;padding:10px;border-bottom:1px solid var(--line);background:var(--surface-soft)}
+.editor-toolbar button{padding:5px 9px;font-size:12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.editor-toolbar button:disabled{opacity:.45;cursor:not-allowed}
+.block-editor .tiptap{min-height:360px;padding:22px;outline:none;overflow-wrap:anywhere}
+.block-editor .tiptap:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.block-editor .muted{padding:0 14px;font-size:12px}
+.tiptap table{border-collapse:collapse;width:100%;table-layout:fixed}.tiptap td,.tiptap th{border:1px solid var(--line);padding:8px;vertical-align:top}.tiptap th{background:var(--surface-soft)}
+.tiptap img{max-width:100%;height:auto}.tiptap pre{background:var(--surface-soft);padding:16px;border-radius:8px}.tiptap blockquote{border-left:3px solid var(--accent);padding-left:16px}
+.tiptap ul[data-type=taskList]{list-style:none;padding:0}.tiptap ul[data-type=taskList] li{display:flex;gap:8px}.tiptap ul[data-type=taskList] li>div{flex:1}.tiptap ul[data-type=taskList] input{width:auto}
+@media(max-width:580px){.editor-toolbar button{min-height:36px}.block-editor .tiptap{padding:14px}}
