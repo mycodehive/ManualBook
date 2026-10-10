@@ -9,3 +9,4 @@ private_media/
 .ruff_cache/
 backups/
 node_modules/
+*.sh
