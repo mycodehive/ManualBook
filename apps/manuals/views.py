@@ -54,9 +54,12 @@ def space_form(request,pk=None):
 @login_required
 def space(request,pk):
     obj=get_object_or_404(ManualSpace,pk=pk); require(request.user,obj)
-    editor=allowed(request.user,obj,'edit')
     nodes=[n for n in obj.nodes.select_related('published','draft','parent') if node_visible(n) and node_allowed(request.user,n) and (node_allowed(request.user,n,'edit') or n.kind=='folder' or n.published_id)]
-    return render(request,'manuals/space.html',{**context(request,obj),'nodes':tree_nodes(nodes)})
+    for node in nodes:
+        node.ui_can_edit = node_allowed(request.user, node, 'edit')
+        node.ui_can_move = node_allowed(request.user, node, 'move')
+        node.ui_can_copy = node.ui_can_edit
+    return render(request,'manuals/space.html',{**context(request,obj),'nodes':tree_nodes(nodes),'show_node_actions':any(node.ui_can_edit or node.ui_can_move for node in nodes)})
 
 @login_required
 def node_form(request,space_id=None,pk=None):
