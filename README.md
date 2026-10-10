@@ -1,6 +1,6 @@
 # ManualBook
 
-독립형 GitBook 스타일 사내 매뉴얼 플랫폼. `mycodehive/iacfgeneral_ver3`의 Enterprise Platform 공통 UI/UX·환경설정·모듈 구조를 적용하며 기존 업무 데이터와 비밀은 가져오지 않습니다. 여러 조직이 고유 슬러그 아래에서 독립적으로 사용하는 로컬 계정 기반 플랫폼입니다.
+독립형 GitBook 스타일 사내 매뉴얼 플랫폼. Enterprise Platform 공통 UI/UX·환경설정·모듈 구조를 적용하며 기존 업무 데이터와 비밀은 가져오지 않습니다. 여러 조직이 고유 슬러그 아래에서 독립적으로 사용하는 로컬 계정 기반 플랫폼입니다.
 
 ## 실행
 Python 3.12 및 uv로 관리합니다. `.venv` 생성·의존성 설치·실행을 uv로 처리하며, 자세한 작업 흐름은 [uv 프로젝트 관리](docs/uv.md)를 참고하세요.
