@@ -111,3 +111,21 @@ PostgreSQL 옵션은 `MANUALBOOK_DB_ENGINE=postgres` 및 보호된 `.pg_service.
 ## 조직 이관 및 로그인 제한
 단일 조직 버전에서 업데이트하면 기존 데이터와 계정·그룹은 legacy 조직에 귀속됩니다. 쓰기를 중지하고 DB와 private media를 함께 백업한 후 migrate를 실행하고 /o/legacy/login/에서 기존 계정으로 동작을 검증합니다.
 로그인 실패 제한은 조직/아이디·조직/접속 IP의 해시 키를 DB에 저장합니다. 운영자는 주기적으로 24시간 이상 지난 LoginThrottle 레코드를 삭제할 수 있습니다. 글로벌 관리자 잠금이 발생하면 15분 대기 또는 신뢰된 운영 콘솔에서 해당 레코드를 정리합니다. 직접 연결된 nginx의 소켓 IP를 DJANGO_TRUSTED_PROXY_IPS에 지정하면 nginx가 덮어쓴 X-Real-IP를 검증해 사용합니다. 다른 소켓에서 보내는 헤더는 무시합니다. 프록시 IP를 정확히 설정하지 않으면 공유 프록시 주소의 한도가 적용됩니다. X-Forwarded-For는 임의로 신뢰하지 않습니다.
+
+## 로그아웃 CSRF 403 진단
+
+로그아웃은 POST와 CSRF 검증을 유지합니다. 다른 탭에서 로그인하면서 CSRF 쿠키가 회전한 경우 제출 직전에 현재 쿠키의 토큰으로 갱신합니다. 검증 실패 시 로그인 세션은 유지되고 새 토큰을 가진 명시적인 재시도 폼을 표시합니다. GET 요청은 로그아웃하지 않습니다.
+
+반복되는 실패는 서버의 `django.security.csrf` 로그로 구분하세요. 실제 서버의 서비스 이름으로 아래 명령을 바꿉니다.
+
+```bash
+sudo journalctl -u manualbook -n 100 --no-pager
+```
+
+- `CSRF cookie not set`: 운영 환경은 Secure 쿠키를 사용하므로 HTTPS로 접속하고 브라우저 쿠키 허용 여부를 확인합니다.
+- `CSRF token ... incorrect`: 페이지 새로고침 또는 로그아웃 재시도 폼을 사용합니다.
+- `Origin checking failed` / `Referer checking failed`: 접속 주소의 스킴·호스트·포트를 확인합니다. Nginx가 TLS를 종료한다면 `DJANGO_TRUST_PROXY=true`와 `X-Forwarded-Proto` 전달이 필요하며 Gunicorn은 신뢰하는 프록시 뒤에 배치합니다. 이 설정은 외부에서 임의 전달한 프록시 헤더를 신뢰하는 용도로 사용하면 안 됩니다.
+
+필요한 trusted origin은 `.env`의 `DJANGO_CSRF_TRUSTED_ORIGINS`에 실제 접속 주소만 입력합니다. 예: `https://manualbook.example.com` 또는 외부 포트를 쓴다면 `https://manualbook.example.com:36980`. `DJANGO_ALLOWED_HOSTS`에는 스킴과 포트 없이 호스트 이름을 입력합니다. 다른 사이트를 광범위하게 신뢰하도록 지정하거나 CSRF 검증을 끄지 않습니다.
+
+Nginx 예제는 `Host $http_host`로 외부 포트를 보존합니다. 기존 서버에서 적용할 때는 해당 프록시 설정과 환경변수를 확인하고 `sudo nginx -t` 후 Nginx를 reload하고 Django 서비스를 재시작하세요. 정확한 운영 원인은 실패 로그 없이 확정할 수 없습니다.

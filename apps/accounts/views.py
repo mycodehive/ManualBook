@@ -37,3 +37,16 @@ class OrganizationLoginView(LoginView):
         return super().form_valid(form)
     def get_success_url(self):
         return self.get_redirect_url() or reverse('home' if getattr(self.request,'organization',None) else 'organization_list')
+
+
+def csrf_failure(request, reason=''):
+    """Offer an explicit logout retry without executing a rejected mutation."""
+    from django.views.csrf import csrf_failure as default_failure
+    from django.utils.cache import patch_cache_control
+    match = request.resolver_match
+    if not match or match.url_name != 'logout':
+        return default_failure(request, reason=reason)
+    response = render(request, 'registration/logout_csrf_failure.html',
+        {'logout_action': request.path}, status=403)
+    patch_cache_control(response, private=True, no_cache=True, no_store=True, must_revalidate=True)
+    return response

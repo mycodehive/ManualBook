@@ -1,0 +1,6 @@
+<section class="card">
+<div class="page-header"><div><h1>로그아웃을 완료하지 못했습니다</h1><p>요청 확인에 실패했습니다. 이 요청으로 로그인 상태를 변경하지 않았습니다.</p></div></div>
+<p>다른 탭에서 로그인했거나 화면을 오래 열어 두었다면 아래 버튼으로 다시 시도하세요.</p>
+<form method="post" action="{{ logout_action }}" class="platform-form" data-logout-form>{% csrf_token %}<div class="form-actions"><button type="submit" class="btn btn-primary">로그아웃 다시 시도</button><a class="btn btn-secondary" href="{% url 'login' %}">로그인 화면</a></div></form>
+<p class="help-text">반복해서 실패하면 HTTPS 주소로 접속하고 쿠키 허용 여부를 확인하세요. 관리자는 서버의 CSRF 실패 로그와 HTTPS 프록시·접속 주소 설정을 확인해야 합니다.</p>
+</section>
