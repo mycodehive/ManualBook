@@ -80,3 +80,5 @@ MANUAL_ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024
 AUTHENTICATION_BACKENDS=['apps.organizations.backends.OrganizationBackend']
 
 TRUSTED_PROXY_IPS=[x.strip() for x in get_env('DJANGO_TRUSTED_PROXY_IPS','').split(',') if x.strip()]
+
+CSRF_FAILURE_VIEW = 'apps.accounts.views.csrf_failure'
