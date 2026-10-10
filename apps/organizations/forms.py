@@ -4,6 +4,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError, PermissionDenied
 from .models import Organization,Membership,Department,OrganizationGroup
 from .scoping import ScopedModel,current_organization
+from .labels import set_group_choices_label, user_label
 
 class ScopedModelForm(forms.ModelForm):
     def __init__(self,*args,organization=None,user=None,**kwargs):
@@ -16,8 +17,12 @@ class ScopedModelForm(forms.ModelForm):
             if not hasattr(field,'queryset'): continue
             model=field.queryset.model
             if issubclass(model,ScopedModel): field.queryset=model.all_objects.filter(organization=org)
-            elif model is Group: field.queryset=Group.objects.filter(pk__in=OrganizationGroup.all_objects.filter(organization=org).values('group_id'))
-            elif model is get_user_model(): field.queryset=model.objects.filter(pk__in=Membership.all_objects.filter(organization=org,active=True,user__is_active=True).values('user_id'))
+            elif model is Group:
+                field.queryset=Group.objects.filter(pk__in=OrganizationGroup.all_objects.filter(organization=org).values('group_id'))
+                set_group_choices_label(field,org)
+            elif model is get_user_model():
+                field.queryset=model.objects.filter(pk__in=Membership.all_objects.filter(organization=org,active=True,user__is_active=True).values('user_id'))
+                field.label_from_instance=user_label
 
 class OrganizationForm(forms.ModelForm):
     admin_username=forms.CharField(label='첫 관리자 아이디',max_length=100,required=False)

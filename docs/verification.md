@@ -1,9 +1,12 @@
 # 검증 기록
 
-개발환경: Python 3.12 / Django 5.2 계열 / SQLite. PostgreSQL CI는 구성했지만 원격 GitHub 실행 결과는 아직 확인하지 않았다.
+개발환경: Python 3.12 / Django 5.2 계열 / SQLite. GitHub Actions에서 SQLite·PostgreSQL·편집기·의존성 감사 작업의 성공을 확인했다. 최종 커밋 실행은 PR의 Checks에서 확인한다.
 
 ## 실행 확인
-- Django 전체 테스트: 28개 통과. 공간/노드 권한, 초안 게시 분리, stale write, 정확한 승인 revision, 본인승인, IDOR/첨부, XSS, 메뉴 ancestor 및 연결 정책 포함.
+- Django 전체 테스트: SQLite 58개 통과. 공간/노드 권한, 초안 게시 분리, stale write, 정확한 승인 revision, 본인승인, IDOR/첨부, XSS, 메뉴 ancestor 및 연결 정책 포함. PostgreSQL CI에서도 다중 조직·기존 데이터 이관 회귀 테스트 통과.
+- 조직 격리: 관리자/사용자 권한, 다른 조직의 GET·POST·검색·파일·ZIP·연결 차단, 컨텍스트·queryset·iterator 재사용, FK/M2M 조직 일치, 조직별 아이디 및 로그인 실패 제한, 마지막 활성 관리자 보호 검증.
+- MigrationExecutor 검증: 기존 계정의 실제 비밀번호 로그인, 그룹·설정·문서·게시본 관계, 암호화된 연결 값, 비공개 파일 경로와 실제 바이트의 이관 유지 확인.
+- 조직 관리자 공간 생성 버튼 및 권한 폼의 조직 그룹 표시명 회귀 검사 통과.
 - `ruff check .`: 통과.
 - backup/restore shell `bash -n`: 통과. 실제 PostgreSQL backup/restore 실행은 미검증.
 - `makemigrations --check --dry-run`: 변경 없음. 초기 및 추가 migration 적용 성공.
@@ -18,4 +21,4 @@
 게시된 revision에 파일을 직접 추가할 수 있었던 경로를 수정했다. 업로드는 기존 첨부 association을 유지하는 새 초안 revision을 만들고 해당 파일을 새 revision에만 연결한다. 게시본 attachment 집합이 승인 없이 변하지 않는 테스트가 통과한다. 노드 move는 명시 action과 기본 edit action 모두의 inherited deny를 검사한다.
 
 ## 검증 제한
-Playwright Chromium 실행파일이 없었고 다운로드가 반복적으로 손상되어 브라우저 스크린샷/픽셀 비교를 수행하지 못했다. HTML/template HTTP smoke와 Django tests는 브라우저 렌더링 검증을 대체하지 않는다. 실제 TLS/Nginx/systemd, PostgreSQL 동시성·복원, 접근성 AA, 대량 문서 부하, 외부 API 인증, 운영 로그인 rate-limit/MFA는 운영 전 별도 검증이 필요하다.
+Playwright Chromium 실행파일이 없었고 다운로드가 반복적으로 손상되어 브라우저 스크린샷/픽셀 비교를 수행하지 못했다. HTML/template HTTP smoke와 Django tests는 브라우저 렌더링 검증을 대체하지 않는다. 실제 TLS/Nginx/systemd, PostgreSQL 동시성·복원, 접근성 AA, 대량 문서 부하, 외부 API 인증, 실제 프록시에서 로그인 실패 제한 적용 및 MFA 도입은 운영 전 별도 검증이 필요하다.

@@ -57,6 +57,20 @@ class TenantIsolationTests(TestCase):
     def denied(self,response):
         self.assertIn(response.status_code,(403,404),response.content[:500])
 
+    def test_org_admin_can_create_spaces_and_forms_show_human_group_names(self):
+        from django.urls import reverse
+        self.client.force_login(self.a_admin)
+        response=self.client.get(self.url(self.a,reverse('manuals:spaces')))
+        self.assertContains(response,self.url(self.a,reverse('manuals:space_create')))
+        for path in [reverse('manuals:space_settings',args=[self.tenants['alpha']['space'].pk]),reverse('menu_create'),reverse('integration_create',args=['connection'])]:
+            response=self.client.get(self.url(self.a,path))
+            self.assertEqual(response.status_code,200)
+            self.assertContains(response,'Editors')
+            self.assertNotContains(response,'org:'+str(self.a.pk)+':')
+        self.client.force_login(self.a_user)
+        response=self.client.get(self.url(self.a,reverse('manuals:spaces')))
+        self.assertNotContains(response,self.url(self.a,reverse('manuals:space_create')))
+
     def test_default_manager_without_context_returns_no_tenant_rows(self):
         with organization_scope(None):
             for model in [Membership,OrganizationGroup,Department,SiteConfiguration,AuditEvent,Menu,Connection,DataResource,FeatureBinding,ManualSpace,ManualNode,ManualRevision,ManualAttachment,ApprovalRequest]:
