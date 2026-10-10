@@ -9,8 +9,19 @@ def usable_connections(user):
     if is_org_admin(user): return Connection.objects.filter(active=True)
     return Connection.objects.filter(active=True).filter(Q(owner=user)|Q(shared=True,groups__isnull=True)|Q(shared=True,groups__pk__in=organization_group_ids(user))).distinct()
 
+def require_binding_scope(binding):
+    from apps.organizations.scoping import current_organization
+    org=current_organization()
+    valid=bool(org and binding.organization_id==org.pk)
+    if binding.connection:
+        valid=valid and binding.connection.organization_id==org.pk
+    if binding.data_resource:
+        valid=valid and binding.data_resource.organization_id==org.pk and binding.data_resource.connection_id==binding.connection_id
+    if not valid: raise PermissionDenied('기능 연결의 조직 관계가 올바르지 않습니다.')
+
 def resolve_binding(feature_code, user):
     binding=FeatureBinding.objects.select_related('connection','data_resource').filter(feature_code=feature_code).first()
+    if binding: require_binding_scope(binding)
     if binding and binding.connection and not binding.connection.can_use(user): raise PermissionDenied('연결 사용 권한이 없습니다.')
     return binding
 

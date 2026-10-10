@@ -340,3 +340,15 @@ class TenantIsolationTests(TestCase):
         self.assertNotIn('_auth_user_id',self.client.session)
         self.assertEqual(self.client.post('/login/',data).status_code,302)
         self.assertEqual(self.client.get(self.url(self.a,'/settings/')).status_code,200)
+
+    def test_corrupt_foreign_binding_resource_is_never_resolved_or_exported(self):
+        a=self.tenants['alpha'];b=self.tenants['beta']
+        with organization_scope(self.b):
+            foreign=DataResource.objects.create(connection=b['connection'],name='BETA-PRIVATE-RESOURCE',external_id='BETA-SECRET-ID')
+        with organization_scope(self.a):
+            binding=FeatureBinding.objects.create(feature_code='manuals.ai',connection=a['connection'])
+            FeatureBinding.all_objects.filter(pk=binding.pk).update(data_resource_id=foreign.pk)
+            from apps.integrations.services import resolve_binding
+            from apps.integrations.configuration import export_configuration
+            with self.assertRaises(PermissionDenied): resolve_binding('manuals.ai',self.a_admin)
+            with self.assertRaises(PermissionDenied): export_configuration(self.a_admin)
