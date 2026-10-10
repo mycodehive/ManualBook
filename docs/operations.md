@@ -1,13 +1,21 @@
 # Ubuntu 운영과 복구
 
-이 문서는 서버에서 운영자가 검토해 실행할 절차다. 실제 서버·도메인·TLS·백업 위치는 아직 확정되지 않았다. 예시는 Ubuntu의 지원 중인 LTS, PostgreSQL, Python3.12, uv, Gunicorn, systemd를 전제로 한다.
+이 문서는 서버에서 운영자가 검토해 실행할 절차다. 실제 서버·도메인·TLS·백업 위치는 아직 확정되지 않았다. 기본은 Ubuntu의 지원 중인 LTS, SQLite, Python3.12, uv, Gunicorn, systemd다. PostgreSQL과 MariaDB는 선택한다.
 
 ## 1. 서버 준비
-Ubuntu 보안 업데이트를 적용하고 SSH key 접속을 검증한다. 방화벽은 SSH 관리 IP, 80/443만 허용한다. PostgreSQL/8000은 공개하지 않는다. 제한된 `manualbook` 계정, `/opt/manualbook/releases`, `/var/lib/manualbook/private-media`, `/var/lib/manualbook/static`, `/etc/manualbook`을 만든다. 운영 코드/venv는 배포자가 소유하고 서비스 계정에는 읽기/실행만, private media만 쓰기를 준다. Nginx가 static을 읽을 수 있게 하되 private media 권한은 열지 않는다.
+Ubuntu 보안 업데이트를 적용하고 SSH key 접속을 검증한다. 방화벽은 SSH 관리 IP, 80/443만 허용한다. 선택 DB 서버의 포트와 8000은 공개하지 않는다. 제한된 `manualbook` 계정, `/opt/manualbook/releases`, `/var/lib/manualbook/private-media`, `/var/lib/manualbook/static`, `/etc/manualbook`을 만든다. 운영 코드/venv는 배포자가 소유하고 서비스 계정에는 읽기/실행만, SQLite DB 디렉터리와 private media만 쓰기를 준다. Nginx가 static을 읽을 수 있게 하되 private media 권한은 열지 않는다.
 
 Python3.12·uv는 신뢰할 수 있는 배포 경로로 설치하고 버전을 확인한다. Ubuntu에서 Python venv 및 PDF 런타임은 `python3.12-venv`, `libpango-1.0-0`, `libpangoft2-1.0-0`, `fonts-noto-cjk` 패키지를 설치한다. 선택한 Ubuntu 버전의 Python package 명칭을 확인한다. 배포 release에서 `uv sync --frozen --no-dev`를 실행한다. uv executable은 systemd 시작에 필요하지 않으며 venv의 Gunicorn을 사용한다.
 
-## 2. PostgreSQL
+## 2. DB 선택
+### SQLite (기본)
+별도 DB 서버가 필요 없다. `/var/lib/manualbook`을 서비스 계정이 쓸 수 있게 만들고 디렉터리 0700, DB 파일 0600 권한을 적용한다. 저널/WAL/SHM 생성에도 부모 디렉터리 쓰기권한이 필요하다. 운영 DB를 release 코드 폴더에 두지 않는다.
+
+`DATABASE_URL=sqlite:////var/lib/manualbook/db.sqlite3`와 기본 `uv sync --frozen --no-dev`를 사용한다. SQLite는 쓰기 트랜잭션 IMMEDIATE, 기본 잠금 대기 20초로 구성한다. systemd 기본 worker는 1개이며 다중 동시 쓰기 규모는 실제 부하 검증으로 결정한다.
+
+### PostgreSQL (선택)
+`uv sync --frozen --no-dev --extra postgres`, `DATABASE_URL=postgresql://USER:URL_ENCODED_PASSWORD@HOST:5432/DB`를 설정한다. 로컬 DB를 사용하면 systemd의 `After=`에 해당 DB 서비스를 선택적으로 추가한다.
+
 로컬 또는 private network DB를 사용한다. DBA 계정으로 최소권한 사용자와 DB를 생성한다. 비밀번호는 `psql`의 `\password manualbook` 같은 대화형 방법으로 설정하고 셸 기록에 입력하지 않는다.
 
 ```sql
@@ -17,6 +25,15 @@ CREATE DATABASE manualbook OWNER manualbook;
 
 서버 pg_hba는 허용된 앱 연결만 scram-sha-256 등 조직 정책으로 제한한다. 최초 migration 계정과 런타임 계정을 분리하려면 schema DDL privileges·sequence grants를 검토한다. 운영 백업용 `.pg_service.conf`/`.pgpass`는 권한 0600으로 보호한다.
 
+### MariaDB (선택)
+Django 5.2 지원 MariaDB를 사용한다(CI: 11.4). Ubuntu 드라이버 빌드 준비: `sudo apt-get install python3-dev default-libmysqlclient-dev build-essential pkg-config`. 설치는 `uv sync --frozen --no-dev --extra mariadb`, 연결은 `DATABASE_URL=mysql://USER:URL_ENCODED_PASSWORD@HOST:3306/DB`다. 전용 최소권한 계정을 만들고 InnoDB를 사용한다. DB 생성 예:
+
+```sql
+CREATE DATABASE manualbook CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+```
+
+비밀번호는 보호된 DBA/client 설정에서 관리하고 명령행 인수에 넣지 않는다. 설정은 utf8mb4, STRICT_TRANS_TABLES, read committed를 적용한다. `utf8mb4_bin`은 SQLite와 동일한 대소문자 구별을 유지하기 위한 선택이다. 기존 DB의 대소문자 중복·FK·JSON/UUID를 이관 전에 검증한다. MariaDB DDL은 실패 시 부분 적용될 수 있으므로 스테이징에서 마이그레이션과 백업 복구를 먼저 확인한다.
+
 ## 3. 환경파일
 `/etc/manualbook/manualbook.env`를 root:manualbook 0640으로 생성한다. key는 임의 placeholder를 복사하지 않고 별도 생성한다.
 
@@ -24,7 +41,7 @@ CREATE DATABASE manualbook OWNER manualbook;
 DJANGO_DEBUG=false
 DJANGO_SECRET_KEY=<독립적으로 생성한 50자 이상 무작위 값>
 INTEGRATION_ENCRYPTION_KEY=<Fernet.generate_key() 결과>
-DATABASE_URL=postgresql://manualbook:<URL-escaped-password>@127.0.0.1:5432/manualbook
+DATABASE_URL=sqlite:////var/lib/manualbook/db.sqlite3
 DJANGO_ALLOWED_HOSTS=manualbook.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://manualbook.example.com
 DJANGO_TRUST_PROXY=true
@@ -48,7 +65,9 @@ uv run python manage.py createsuperuser
 uv run python manage.py collectstatic --noinput
 ```
 
-`deploy/manualbook.service`의 경로/worker 수를 서버 자원에 맞춰 검토하여 설치한다. systemd unit의 `ProtectSystem=strict`를 유지하고 private media 이외 임의 쓰기를 허용하지 않는다. `systemctl daemon-reload`, `enable --now manualbook`, `journalctl -u manualbook`로 확인한다.
+선택 DB를 사용할 때 위 `uv run` 명령에 `--extra postgres` 또는 `--extra mariadb`를 추가한다. 서비스 실행은 이미 설치된 venv의 Gunicorn을 직접 사용한다.
+
+`deploy/manualbook.service`의 경로/worker 수를 서버 자원에 맞춰 검토하여 설치한다. systemd unit의 `ProtectSystem=strict`를 유지하고 SQLite DB 및 private media의 `/var/lib/manualbook` 이외 임의 쓰기를 허용하지 않는다. `systemctl daemon-reload`, `enable --now manualbook`, `journalctl -u manualbook`로 확인한다.
 
 Nginx 템플릿의 도메인·인증서 경로를 실제 값으로 바꾸고 인증서 발급을 완료한 후 `nginx -t` 및 reload. 처음 인증서 발급에는 별도 HTTP ACME challenge 구성이 필요하다. `/media/` 및 `/private-media/`는 공개하지 않는다. Cloud/Proxy 사용 시 `DJANGO_TRUST_PROXY`는 오직 직접 연결된 프록시가 전달 헤더를 덮어쓰는 경우에만 켠다.
 
@@ -64,7 +83,19 @@ Nginx 템플릿의 도메인·인증서 경로를 실제 값으로 바꾸고 인
 ## 6. 백업과 복원
 `scripts/backup.sh`는 쓰기 중지 유지보수 창에서 DB와 private media를 같이 저장한다. live DB dump와 동시에 변하는 파일을 조합하면 일관성이 보장되지 않는다. 백업은 권한 0700/0600, 암호화 후 off-host, 날짜별 보존 및 무결성 검증. 정책 예시 매일/30일은 제안이고 RPO/RTO를 실제 조직에서 정한다.
 
-복구 훈련은 새 빈 PostgreSQL DB·빈 private media directory에 `scripts/restore_verify.sh /absolute/snapshot-path`. 해당 DB를 가리키는 DATABASE_URL, 같은 암호화 키와 backup 당시 코드 revision으로 앱 검사·게시 문서·파일·연결 복호화를 검증한다. 스크립트의 PGSERVICE는 반드시 훈련 DB를 가리킨다.
+백업 스크립트는 기본 `MANUALBOOK_DB_ENGINE=sqlite`다. 다음 환경을 설정하고 `scripts/backup.sh`를 실행한다.
+
+```bash
+export MANUALBOOK_SQLITE_PATH=/var/lib/manualbook/db.sqlite3
+export MANUALBOOK_MEDIA_ROOT=/var/lib/manualbook/private-media
+export MANUALBOOK_BACKUP_ROOT=/protected/manualbook-backups
+```
+
+SQLite는 표준 Python sqlite3 backup API로 snapshot을 만들며 활성 DB 파일을 단순 복사하지 않는다. 복구 훈련에는 `MANUALBOOK_SQLITE_PATH`를 아직 존재하지 않는 별도 절대경로로, `MANUALBOOK_RESTORE_MEDIA_ROOT`를 빈 디렉터리로 지정한다. 기존 파일은 덮어쓰지 않고 integrity/FK 검사를 수행한다.
+
+PostgreSQL 옵션은 `MANUALBOOK_DB_ENGINE=postgres` 및 보호된 `.pg_service.conf`/`.pgpass`의 `PGSERVICE`를 사용한다. MariaDB 옵션은 `MANUALBOOK_DB_ENGINE=mariadb`, `MANUALBOOK_DB_CLIENT_FILE`(0600 client option file), `MANUALBOOK_DB_NAME`을 사용한다. 복구 시에는 반드시 별도 훈련 DB에 연결하는 client 파일을 지정한다. MariaDB dump는 InnoDB·DDL 없는 쓰기 중지 창에서 생성한다. Snapshot에는 엔진과 체크섬이 기록되며 엔진이 다른 복구는 거부한다. DBURL 변경이나 백업 복원은 엔진 간 이관을 수행하지 않는다.
+
+복구 훈련은 새 빈 선택 DB·빈 private media directory에 `scripts/restore_verify.sh /absolute/snapshot-path`. 해당 DB를 가리키는 DATABASE_URL, 같은 암호화 키와 backup 당시 코드 revision으로 앱 검사·게시 문서·파일·연결 복호화를 검증한다. DB 경로/PGSERVICE/MariaDB client 파일은 반드시 훈련 DB를 가리킨다.
 
 실제 장애 복구: maintenance → 서비스 정지 → 기존 상태 별도 backup → 검증된 DB/media snapshot restore → matching key/env/code → check/migrate가 필요한지 검토 → 서비스 시작 → 권한/게시/파일 smoke → 트래픽 재개. snapshot 이후 작성 내용이 없어지는 복구는 사용자에게 손실 구간을 알린다.
 

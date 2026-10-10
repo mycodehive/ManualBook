@@ -2,6 +2,12 @@
 
 개발환경: Python 3.12 / Django 5.2 계열 / SQLite. GitHub Actions에서 SQLite·PostgreSQL·편집기·의존성 감사 작업의 성공을 확인했다. 최종 커밋 실행은 PR의 Checks에서 확인한다.
 
+## SQLite 기본 / 선택 DB 변경
+- DB 설정을 생략하거나 비워도 프로젝트 경로의 SQLite를 사용한다. PostgreSQL 및 MariaDB 드라이버는 각각 `postgres`/`mariadb` extra로 분리했다.
+- SQLite 전체 테스트 63개 통과(설정 선택·경로·잘못된 URL·DB별 옵션 검사 5개 추가).
+- SQLite snapshot 백업→새 경로 복구 후 데이터와 비공개 파일 바이트 일치 및 기존 DB 덮어쓰기 거부를 실제 임시 DB로 확인했다.
+- MariaDB 11.4 신규 migrate, bootstrap 및 전체 회귀 테스트를 CI에 추가했다. 이번 변경의 PostgreSQL/MariaDB 실행 결과는 PR Checks를 참조한다.
+
 ## 실행 확인
 - Django 전체 테스트: SQLite 58개 통과. 공간/노드 권한, 초안 게시 분리, stale write, 정확한 승인 revision, 본인승인, IDOR/첨부, XSS, 메뉴 ancestor 및 연결 정책 포함. PostgreSQL CI에서도 다중 조직·기존 데이터 이관 회귀 테스트 통과.
 - 조직 격리: 관리자/사용자 권한, 다른 조직의 GET·POST·검색·파일·ZIP·연결 차단, 컨텍스트·queryset·iterator 재사용, FK/M2M 조직 일치, 조직별 아이디 및 로그인 실패 제한, 마지막 활성 관리자 보호 검증.

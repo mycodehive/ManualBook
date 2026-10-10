@@ -12,10 +12,10 @@ uv run python manage.py collectstatic --noinput
 ```
 `bootstrap`은 기본 메뉴·역할 그룹·사이트 설정만 생성하며 기존 관리자 편집을 덮어쓰지 않아야 한다. 계정 비밀번호는 `createsuperuser`로 별도 생성한다. 실제 command 명칭은 README와 command 파일을 확인한다.
 
-CI는 Python3.12 설치, frozen sync, migration drift, 빈 DB migrate, Django tests. PostgreSQL job은 SQLite가 확인하지 못하는 잠금·정합성을 확인한다. 의존성 audit는 별도 GitHub job으로 실행하며 네트워크/advisory availability 실패와 취약점 발견을 구분한다. Playwright는 브라우저 검증 단계의 별도 도입사항이다.
+CI는 Python3.12 설치, frozen sync, migration drift, 빈 DB migrate, Django tests. PostgreSQL/MariaDB 선택 DB job에서도 동일한 회귀 테스트를 수행한다. 실제 동시성·잠금 부하 검증은 별도 릴리스 조건이다. 의존성 audit는 별도 GitHub job으로 실행하며 네트워크/advisory availability 실패와 취약점 발견을 구분한다. Playwright는 브라우저 검증 단계의 별도 도입사항이다.
 
 ## 배포
-기본은 Ubuntu + PostgreSQL + Gunicorn/systemd + Nginx/TLS. 자세한 실행은 `docs/operations.md`. `deploy/`는 검토·치환이 필요한 템플릿이며 실제 서버 설치 완료를 뜻하지 않는다. 운영 체크: DEBUG false, 강력한 secret/key, 올바른 hosts/origins, check --deploy, TLS, secure cookies, private media, DB 권한, backup restore.
+기본은 Ubuntu + SQLite + Gunicorn/systemd + Nginx/TLS이며 PostgreSQL/MariaDB는 선택 옵션이다. 자세한 실행은 `docs/operations.md`. `deploy/`는 검토·치환이 필요한 템플릿이며 실제 서버 설치 완료를 뜻하지 않는다. 운영 체크: DEBUG false, 강력한 secret/key, 올바른 hosts/origins, check --deploy, TLS, secure cookies, private media, DB 권한, backup restore.
 
 ## 릴리스 절차
 1. 사용자에게 유지보수 안내 후 쓰기 요청을 중단하고 worker를 정지한다.

@@ -1,7 +1,7 @@
 from pathlib import Path
-import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from .env import get_env
+from .database import database_config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = get_env('DJANGO_DEBUG', 'false').lower() == 'true'
@@ -43,7 +43,7 @@ TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates',
     ]}}]
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
-DATABASES = {'default': dj_database_url.config(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}', conn_max_age=60)}
+DATABASES = {'default': database_config(BASE_DIR, get_env('DATABASE_URL'))}
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},

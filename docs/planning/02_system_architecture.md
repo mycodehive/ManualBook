@@ -1,7 +1,7 @@
 # 시스템 아키텍처
 
 ## ADR-001: 독립 설치형 모듈형 모놀리스
-Python 3.12, Django 5.2 계열, uv 잠금 파일, Django Templates. 개발 SQLite, 운영 PostgreSQL. 조직별 고유 슬러그와 organization_id로 데이터를 분리한다. 조직 컨텍스트가 없는 기본 ORM 접근은 거부하고, 저장·관계·읽기에서 조직 일치를 확인한다. 화면·폼은 경계 검증, 서비스는 권한·트랜잭션·상태 전이, 모델은 DB 정합성을 책임진다.
+Python 3.12, Django 5.2 계열, uv 잠금 파일, Django Templates. 개발·운영 기본 SQLite, PostgreSQL/MariaDB 선택 옵션. 조직별 고유 슬러그와 organization_id로 데이터를 분리한다. 조직 컨텍스트가 없는 기본 ORM 접근은 거부하고, 저장·관계·읽기에서 조직 일치를 확인한다. 화면·폼은 경계 검증, 서비스는 권한·트랜잭션·상태 전이, 모델은 DB 정합성을 책임진다.
 
 ```mermaid
 flowchart TD
@@ -9,7 +9,7 @@ flowchart TD
   Proxy --> App["Gunicorn / Django"]
   App --> Shell["core / accounts / menus / integrations"]
   App --> Domain["manuals: 권한·버전·승인·검색"]
-  Shell --> DB[(PostgreSQL)]
+  Shell --> DB[("SQLite 기본 / 선택 DB")]
   Domain --> DB
   Domain --> Files["비공개 파일 저장소"]
 ```
