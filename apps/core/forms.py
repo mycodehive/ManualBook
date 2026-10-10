@@ -1,8 +1,9 @@
 import re
 from django import forms
+from apps.organizations.forms import ScopedModelForm
 from .models import SiteConfiguration
 
-class SiteConfigurationForm(forms.ModelForm):
+class SiteConfigurationForm(ScopedModelForm):
     class Meta:
         model = SiteConfiguration
         fields = ['name', 'subtitle', 'logo_url', 'primary_color']

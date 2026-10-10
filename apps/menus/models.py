@@ -1,5 +1,6 @@
 from django.contrib.auth.models import Group
 from django.db import models
+from apps.organizations.scoping import ScopedModel
 
 
 def validate_menu_url(value):
@@ -14,9 +15,9 @@ def validate_menu_url(value):
     URLValidator(schemes=['http', 'https'])(value)
 
 
-class Menu(models.Model):
+class Menu(ScopedModel):
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=50)
     url = models.CharField(max_length=200, blank=True)
     order = models.PositiveIntegerField(default=0)
     parent_menu = models.ForeignKey(
@@ -44,6 +45,7 @@ class Menu(models.Model):
 
     class Meta:
         ordering = ('order', 'name')
+        constraints = [models.UniqueConstraint(fields=['organization','code'], name='menu_organization_code')]
 
     def __str__(self):
         return f'{self.name} ({self.code})'
@@ -55,7 +57,8 @@ class Menu(models.Model):
             validate_menu_url(self.url)
         except ValidationError:
             return '#'
-        return self.url
+        from django.urls import get_script_prefix
+        return get_script_prefix().rstrip('/') + self.url if self.url.startswith('/') else self.url
 
     @property
     def is_external(self):

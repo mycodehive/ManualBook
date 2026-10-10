@@ -1,3 +1,4 @@
+from apps.organizations.scoping import is_org_admin
 """Portable, credential-free configuration; never export encrypted secrets or owners."""
 import json
 from django.db import transaction
@@ -10,7 +11,7 @@ from apps.core.services import audit
 
 
 def export_configuration(actor):
-    connections=Connection.objects.all() if actor.is_superuser else Connection.objects.filter(owner=actor)
+    connections=Connection.objects.all() if is_org_admin(actor) else Connection.objects.filter(owner=actor)
     result={'version':1,'connections':[],'resources':[],'bindings':[]}
     for connection in connections:
         validate_options(connection.config)

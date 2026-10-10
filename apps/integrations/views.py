@@ -1,3 +1,4 @@
+from apps.organizations.scoping import is_org_admin
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -7,11 +8,11 @@ from apps.core.services import audit
 from .models import Connection, DataResource, FeatureBinding
 from .forms import ConnectionForm, DataResourceForm, FeatureBindingForm
 from .services import save_binding, can_manage
-staff=user_passes_test(lambda u:u.is_staff)
+staff=user_passes_test(is_org_admin)
 @login_required
 @staff
 def index(request):
-    managed=Connection.objects.all() if request.user.is_superuser else Connection.objects.filter(owner=request.user)
+    managed=Connection.objects.all() if is_org_admin(request.user) else Connection.objects.filter(owner=request.user)
     return render(request,'integrations/list.html',{'connections':managed,'resources':DataResource.objects.filter(connection__in=managed).select_related('connection'),'bindings':FeatureBinding.objects.filter(connection__in=managed).select_related('connection')})
 @login_required
 @staff
@@ -27,7 +28,7 @@ def edit(request, kind, pk=None):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied('연결 관리 권한이 없습니다.')
     form=form_class(request.POST or None,instance=obj)
-    managed=Connection.objects.all() if request.user.is_superuser else Connection.objects.filter(owner=request.user)
+    managed=Connection.objects.all() if is_org_admin(request.user) else Connection.objects.filter(owner=request.user)
     if 'connection' in form.fields: form.fields['connection'].queryset=managed
     if 'data_resource' in form.fields: form.fields['data_resource'].queryset=DataResource.objects.filter(connection__in=managed)
     if request.method=='POST' and form.is_valid():

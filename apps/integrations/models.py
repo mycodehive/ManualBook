@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import models
+from apps.organizations.scoping import ScopedModel, current_organization, is_org_admin, organization_group_ids
 
 
 def cipher():
@@ -16,9 +17,9 @@ def cipher():
         raise ValidationError('암호화 키 형식이 올바르지 않습니다.') from None
 
 
-class Connection(models.Model):
+class Connection(ScopedModel):
     PROVIDERS = [('notion', 'Notion'), ('google', 'Google'), ('smtp', '메일 SMTP'), ('sms', '문자'), ('llm', 'LLM')]
-    name = models.CharField('연결명', max_length=120, unique=True)
+    name = models.CharField('연결명', max_length=120)
     provider = models.CharField('서비스', max_length=20, choices=PROVIDERS)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     shared = models.BooleanField('조직 공유', default=False)
@@ -31,6 +32,7 @@ class Connection(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
+        super().clean()
         from .validation import validate_options
         validate_options(self.config)
         if self.provider == 'smtp' and self.config.get('security','starttls') not in ('ssl','starttls'):
@@ -49,23 +51,30 @@ class Connection(models.Model):
         except InvalidToken:
             raise ValidationError('연결 비밀값을 읽을 수 없습니다. 암호화 키를 확인해 주세요.') from None
 
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['organization','name'], name='connection_organization_name')]
+
     def can_use(self, user=None):
+        org = current_organization()
+        if not org or self.organization_id != org.pk: return False
+        from apps.organizations.models import Membership
+        if user and not user.is_superuser and not Membership.objects.filter(user=user,active=True).exists(): return False
         if not user or not user.is_authenticated or not user.is_active or not self.active:
             return False
-        if user and user.is_authenticated and (user.is_superuser or self.owner_id == user.pk):
+        if user and user.is_authenticated and (is_org_admin(user) or self.owner_id == user.pk):
             return True
         if not self.shared:
             return False
         groups = self.groups.all()
         if not groups.exists():
             return bool(user and user.is_authenticated)
-        return bool(user and user.is_authenticated and groups.filter(pk__in=user.groups.values('pk')).exists())
+        return bool(user and user.is_authenticated and groups.filter(pk__in=organization_group_ids(user)).exists())
 
     def __str__(self):
         return self.name
 
 
-class DataResource(models.Model):
+class DataResource(ScopedModel):
     connection = models.ForeignKey(Connection, on_delete=models.PROTECT, related_name='resources')
     name = models.CharField('자원명', max_length=120)
     external_id = models.CharField('DB / Sheet ID 또는 공개 CSV URL', max_length=600)
@@ -80,8 +89,8 @@ class DataResource(models.Model):
         return self.name
 
 
-class FeatureBinding(models.Model):
-    feature_code = models.CharField('기능 코드', max_length=70, unique=True)
+class FeatureBinding(ScopedModel):
+    feature_code = models.CharField('기능 코드', max_length=70)
     connection = models.ForeignKey(Connection, null=True, blank=True, on_delete=models.PROTECT, related_name='bindings')
     data_resource = models.ForeignKey(DataResource, null=True, blank=True, on_delete=models.PROTECT, related_name='bindings')
     resource_id = models.CharField('직접 DB / Sheet ID', max_length=600, blank=True)
@@ -104,11 +113,13 @@ class FeatureBinding(models.Model):
         for value in (self.config, self.field_mapping):
             if not isinstance(value, dict):
                 raise ValidationError('설정은 JSON 객체여야 합니다.')
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['organization','feature_code'], name='binding_organization_feature')]
     def __str__(self):
         return self.feature_code
 
 
-class ConfigurationRevision(models.Model):
+class ConfigurationRevision(ScopedModel):
     binding = models.ForeignKey(FeatureBinding, on_delete=models.CASCADE, related_name='versions')
     number = models.PositiveIntegerField()
     snapshot = models.JSONField()

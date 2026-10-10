@@ -1,3 +1,5 @@
+from apps.organizations.models import Organization, Membership, OrganizationGroup
+from apps.organizations.scoping import organization_scope
 import io
 import zipfile
 from django.contrib.auth.models import User, Group
@@ -9,9 +11,14 @@ from .services import save_revision, publish
 
 class ExchangeTests(TestCase):
     def setUp(self):
+        self.organization=Organization.objects.create(name='Exchange tests',slug='exchange')
+        self.scope=organization_scope(self.organization);self.scope.__enter__()
+        self.addCleanup(self.scope.__exit__,None,None,None)
         self.user = User.objects.create_user('author')
         self.group = Group.objects.create(name='exchange-editors')
-        self.user.groups.add(self.group)
+        membership=Membership.objects.create(user=self.user,role='member')
+        wrapper=OrganizationGroup.objects.create(group=self.group,name='exchange-editors')
+        membership.groups.add(wrapper)
         self.space = ManualSpace.objects.create(name='Exchange', require_approval=False)
         self.space.edit_groups.add(self.group)
     def archive(self, entries):

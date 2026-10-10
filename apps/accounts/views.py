@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.shortcuts import render, redirect
+from apps.organizations.scoping import is_org_admin
 from .forms import ProfileForm
 @login_required
 def profile(request):
@@ -9,6 +10,13 @@ def profile(request):
         form.save(); messages.success(request, '프로필을 저장했습니다.'); return redirect('account_profile')
     return render(request, 'accounts/profile.html', {'form': form})
 @login_required
-@user_passes_test(lambda u: u.is_staff)
+@user_passes_test(is_org_admin)
 def management(request):
-    return render(request, 'accounts/management.html')
+    return redirect('organization_members')
+
+from django.contrib.auth.views import LoginView
+from django.urls import reverse
+class OrganizationLoginView(LoginView):
+    template_name='registration/login.html'
+    def get_success_url(self):
+        return self.get_redirect_url() or reverse('home' if getattr(self.request,'organization',None) else 'organization_list')

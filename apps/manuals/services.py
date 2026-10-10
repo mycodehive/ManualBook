@@ -1,17 +1,35 @@
+from urllib.parse import urlsplit
+from apps.organizations.scoping import current_organization
 import bleach
 import markdown
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from .models import ManualNode, ManualRevision, ApprovalRequest, ManualAttachment
-from .policy import require, require_node, node_allowed
+from .policy import require, require_node, node_allowed, revision_in_scope
 
 class Conflict(ValidationError): pass
+
+def safe_image_attribute(tag,name,value):
+    if name=='alt': return True
+    org=current_organization()
+    if name!='src' or not org: return False
+    parsed=urlsplit(value)
+    import re
+    prefix=f'/o/{org.slug}/manuals/attachments/'
+    return (not parsed.scheme and not parsed.netloc and not parsed.fragment and parsed.query in ('','inline=1') and parsed.path.startswith(prefix) and bool(re.fullmatch(r'[1-9][0-9]*/',parsed.path[len(prefix):])))
 
 def render_markdown(value):
     html = markdown.markdown(value, extensions=['tables','fenced_code','toc'])
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, 'html.parser')
+    org=current_organization()
+    if org:
+        import re
+        for image in soup.find_all('img'):
+            src=image.get('src','')
+            if re.fullmatch(r'/manuals/attachments/[1-9][0-9]*/(?:\?inline=1)?',src):
+                image['src']=f'/o/{org.slug}{src}'
     for item in soup.find_all('li'):
         if not item.contents or not isinstance(item.contents[0], str):
             continue
@@ -22,7 +40,7 @@ def render_markdown(value):
             item['data-checked'] = 'true' if match.group(1).lower() == 'x' else 'false'
             item.contents[0].replace_with(str(item.contents[0])[match.end():])
             item.parent['data-type'] = 'taskList'
-    return bleach.clean(str(soup), tags=['p','br','h1','h2','h3','h4','h5','h6','ul','ol','li','strong','em','s','blockquote','pre','code','a','table','thead','tbody','tr','th','td','hr','details','summary','img'], attributes={'a':['href','title'],'h1':['id'],'h2':['id'],'h3':['id'],'h4':['id'],'h5':['id'],'h6':['id'],'code':['class'],'ul':['data-type'],'li':['data-type','data-checked'],'img':lambda tag,name,value: name=='alt' or (name=='src' and value.startswith('/manuals/attachments/'))}, protocols=['http','https','mailto'], strip=True)
+    return bleach.clean(str(soup), tags=['p','br','h1','h2','h3','h4','h5','h6','ul','ol','li','strong','em','s','blockquote','pre','code','a','table','thead','tbody','tr','th','td','hr','details','summary','img'], attributes={'a':['href','title'],'h1':['id'],'h2':['id'],'h3':['id'],'h4':['id'],'h5':['id'],'h6':['id'],'code':['class'],'ul':['data-type'],'li':['data-type','data-checked'],'img':safe_image_attribute}, protocols=['http','https','mailto'], strip=True)
 
 def audit(user,action,node):
     from apps.core.services import audit as record
@@ -41,7 +59,7 @@ def save_revision(user,node_id,title,body,version,reason=''):
     if node.version != version: raise Conflict('다른 사용자가 수정했습니다. 최신 내용을 다시 불러오세요.')
     rev=ManualRevision.objects.create(node=node,number=node.version+1,title=title,markdown=body,html=render_markdown(body),reason=reason,author=user)
     if node.draft_id:
-        for attachment in node.draft.attachments.all():
+        for attachment in node.draft.attachments.filter(node=node):
             ManualAttachment.objects.create(node=node,revision=rev,file=attachment.file.name,name=attachment.name,author=attachment.author)
     node.version+=1; node.title=title; node.draft=rev; node.save(update_fields=['version','title','draft'])
     audit(user,'manual.save',node)
@@ -74,6 +92,7 @@ def request_review(user,node):
 @transaction.atomic
 def decide(user,request_id,approve,comment):
     review=ApprovalRequest.objects.select_for_update().select_related('revision__node__space').get(pk=request_id)
+    if not revision_in_scope(review.revision): raise ValidationError('다른 조직의 검토 버전입니다.')
     node=ManualNode.objects.select_for_update().get(pk=review.revision.node_id)
     require_node(user,node,'approve')
     if review.status!='pending': raise ValidationError('이미 처리된 요청입니다.')

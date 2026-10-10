@@ -1,17 +1,18 @@
 from django.urls import get_script_prefix
 from apps.core.models import SiteConfiguration
 from .models import Menu
+from apps.organizations.scoping import current_organization, is_org_admin, organization_group_ids
 from .permissions import can_access_menu
 from .registry import matches_path
 
 def navigation(request):
-    site = SiteConfiguration.objects.filter(pk=1).first()
-    result = {'company_name': site.name if site else 'ManualBook', 'site_configuration':site, 'company_logo_url':site.logo_url if site else '', 'brand_color':site.primary_color if site else '#355fe5', 'sidebar_menus':[], 'content_menu_tabs':[]}
+    site = SiteConfiguration.objects.first()
+    result = {'company_name': site.name if site else 'ManualBook', 'site_configuration':site, 'company_logo_url':site.logo_url if site else '', 'brand_color':site.primary_color if site else '#355fe5', 'sidebar_menus':[], 'content_menu_tabs':[], 'organization':current_organization(), 'organization_admin':is_org_admin(request.user)}
     if not request.user.is_authenticated: return result
     menus = list(Menu.objects.prefetch_related('allowed_groups').order_by('order','name'))
     by_id = {m.pk:m for m in menus}; children = {}
     for m in menus: children.setdefault(m.parent_menu_id,[]).append(m)
-    groups = set(request.user.groups.values_list('pk',flat=True))
+    groups = organization_group_ids(request.user)
     def build(menu, seen):
         if menu.pk in seen or not can_access_menu(request.user, menu, by_id, groups): return None
         menu.visible_children = [node for child in children.get(menu.pk,[]) if (node := build(child,seen|{menu.pk})) is not None]

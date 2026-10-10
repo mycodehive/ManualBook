@@ -1,9 +1,10 @@
 import uuid
 from django.conf import settings
 from django.db import models
+from apps.organizations.scoping import ScopedModel
 from django.core.exceptions import ValidationError
 
-class ManualSpace(models.Model):
+class ManualSpace(ScopedModel):
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     active = models.BooleanField(default=True)
@@ -17,7 +18,7 @@ class ManualSpace(models.Model):
         from .policy import allowed
         return allowed(user,self)
 
-class ManualNode(models.Model):
+class ManualNode(ScopedModel):
     space = models.ForeignKey(ManualSpace, on_delete=models.CASCADE, related_name='nodes')
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT, related_name='children')
     title = models.CharField(max_length=200)
@@ -32,6 +33,8 @@ class ManualNode(models.Model):
     class Meta: ordering = ['sort_order','id']
     def __str__(self): return self.title
     def clean(self):
+        super().clean()
+        self._validate_revision_links()
         if self.pk:
             previous = type(self).objects.filter(pk=self.pk).first()
             if previous and previous.kind != self.kind and (previous.draft_id or previous.published_id or previous.children.exists()):
@@ -44,7 +47,15 @@ class ManualNode(models.Model):
             if parent.kind != 'folder': raise ValidationError('문서는 부모가 될 수 없습니다.')
             seen.add(parent.pk); parent = parent.parent
 
-class ManualRevision(models.Model):
+    def _validate_revision_links(self):
+        for revision in (self.draft, self.published):
+            if revision and revision.node_id != self.pk:
+                raise ValidationError('초안·게시 버전은 동일한 문서에 속해야 합니다.')
+    def save(self,*args,**kwargs):
+        self._validate_revision_links()
+        return super().save(*args,**kwargs)
+
+class ManualRevision(ScopedModel):
     node = models.ForeignKey(ManualNode, on_delete=models.CASCADE, related_name='revisions')
     number = models.PositiveIntegerField()
     title = models.CharField(max_length=200)
@@ -60,7 +71,7 @@ class ManualRevision(models.Model):
         if self.pk: raise ValidationError('문서 버전은 수정할 수 없습니다.')
         return super().save(*args,**kwargs)
 
-class ApprovalRequest(models.Model):
+class ApprovalRequest(ScopedModel):
     revision = models.ForeignKey(ManualRevision, on_delete=models.CASCADE, related_name='approvals')
     requester = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
     status = models.CharField(max_length=12, choices=[('pending','검토 중'),('approved','승인'),('rejected','반려')], default='pending')
@@ -75,25 +86,34 @@ class ApprovalRequest(models.Model):
             if previous.revision_id!=self.revision_id or previous.requester_id!=self.requester_id: raise ValidationError('검토 대상 버전과 요청자는 변경할 수 없습니다.')
         return super().save(*args,**kwargs)
 
-class ManualAttachment(models.Model):
+class ManualAttachment(ScopedModel):
     node = models.ForeignKey(ManualNode, on_delete=models.CASCADE, related_name='attachments')
     revision = models.ForeignKey(ManualRevision, on_delete=models.CASCADE, related_name='attachments')
     file = models.FileField(upload_to='manual_private/%Y/%m/')
     name = models.CharField(max_length=200)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
 
-class ManualFavorite(models.Model):
+    def clean(self):
+        super().clean()
+        if self.revision_id and self.revision.node_id != self.node_id:
+            raise ValidationError('첨부파일 버전과 문서가 일치하지 않습니다.')
+    def save(self,*args,**kwargs):
+        if self.revision_id and self.revision.node_id != self.node_id:
+            raise ValidationError('첨부파일 버전과 문서가 일치하지 않습니다.')
+        return super().save(*args,**kwargs)
+
+class ManualFavorite(ScopedModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     node = models.ForeignKey(ManualNode, on_delete=models.CASCADE)
     class Meta: constraints = [models.UniqueConstraint(fields=['user','node'],name='unique_manual_favorite')]
 
-class ManualRecentView(models.Model):
+class ManualRecentView(ScopedModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     node = models.ForeignKey(ManualNode, on_delete=models.CASCADE)
     viewed_at = models.DateTimeField(auto_now=True)
     class Meta: constraints = [models.UniqueConstraint(fields=['user','node'], name='unique_manual_recent')]
 
-class ManualPermissionAssignment(models.Model):
+class ManualPermissionAssignment(ScopedModel):
     node = models.ForeignKey(ManualNode,on_delete=models.CASCADE,related_name='permission_assignments')
     group = models.ForeignKey('auth.Group',null=True,blank=True,on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL,null=True,blank=True,on_delete=models.CASCADE)

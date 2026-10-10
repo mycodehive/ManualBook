@@ -70,8 +70,8 @@ document.querySelectorAll('textarea[data-block-editor]').forEach(textarea => {
     editor.chain().focus().extendMarkRange('link').setLink({href: url}).run();
   });
   addButton('이미지', () => {
-    const url = window.prompt('권한 확인 첨부파일 이미지 주소 (/manuals/...)');
-    if (url?.startsWith('/manuals/') && !url.includes('\\')) editor.chain().focus().setImage({src: url}).run();
+    const url = window.prompt('권한 확인 첨부파일 이미지 주소 (/o/조직/매뉴얼 첨부 주소)');
+    if (url?.startsWith(`${window.location.pathname.split('/manuals/')[0]}/manuals/attachments/`) && !url.includes('\\')) editor.chain().focus().setImage({src: url}).run();
     else if (url) status.textContent = '매뉴얼 첨부파일의 내부 주소를 입력하세요.';
   });
   addButton('실행 취소', () => editor.chain().focus().undo().run());

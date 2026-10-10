@@ -5,7 +5,8 @@ from django.views.decorators.http import require_POST
 from apps.core.services import audit
 from .models import Menu
 from .forms import MenuForm
-staff = user_passes_test(lambda u: u.is_staff)
+from apps.organizations.scoping import is_org_admin
+staff = user_passes_test(is_org_admin)
 @login_required
 @staff
 def index(request):

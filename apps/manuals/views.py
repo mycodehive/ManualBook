@@ -1,3 +1,4 @@
+from apps.organizations.scoping import current_organization, is_org_admin
 import difflib
 import io
 import json
@@ -13,11 +14,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from .models import ManualSpace, ManualNode, ManualRevision, ApprovalRequest, ManualAttachment, ManualFavorite, ManualRecentView, ManualPermissionAssignment
 from .forms import SpaceForm, NodeForm, PermissionForm
-from .policy import allowed, require, spaces_for, node_visible, node_allowed, require_node
+from .policy import allowed, require, spaces_for, node_visible, node_allowed, require_node, revision_in_scope
 from . import services
 
 def context(request,space=None):
-    return {'manual_spaces':spaces_for(request.user),'space':space,'can_edit':bool(space and allowed(request.user,space,'edit')),'can_manage':bool(space and allowed(request.user,space,'manage'))}
+    return {'can_create_space':bool(current_organization() and is_org_admin(request.user)), 'manual_spaces':spaces_for(request.user),'space':space,'can_edit':bool(space and allowed(request.user,space,'edit')),'can_manage':bool(space and allowed(request.user,space,'manage'))}
 
 def get_node(request,pk,action='view',include_deleted=False):
     node=get_object_or_404(ManualNode.objects.select_related('space','draft','published','parent'),pk=pk)
@@ -44,7 +45,7 @@ def spaces(request):
 def space_form(request,pk=None):
     space=get_object_or_404(ManualSpace,pk=pk) if pk else None
     if space: require(request.user,space,'manage')
-    elif not request.user.is_superuser: raise PermissionDenied
+    elif not is_org_admin(request.user): raise PermissionDenied
     form=SpaceForm(request.POST or None,instance=space)
     if request.method=='POST' and form.is_valid():
         space=form.save(); services.audit(request.user,'manual.space.settings',space); messages.success(request,'공간 설정을 저장했습니다.'); return redirect('manuals:space',pk=space.pk)
@@ -98,6 +99,7 @@ def page(request,pk):
     revision=node.published
     if request.GET.get('draft') and node_allowed(request.user,node,'edit'): revision=node.draft
     if not revision: raise Http404('게시된 문서가 없습니다.')
+    revision.html=services.render_markdown(revision.markdown)
     ManualRecentView.objects.update_or_create(user=request.user,node=node)
     attachments=node.attachments.filter(revision=revision)
     return render(request,'manuals/page.html',{**context(request,node.space),'node':node,'revision':revision,'can_edit':node_allowed(request.user,node,'edit'),'is_draft':revision.pk!=node.published_id,'attachments':attachments,'favorite':ManualFavorite.objects.filter(user=request.user,node=node).exists(),'nodes':tree_nodes([n for n in node.space.nodes.select_related('published','parent') if node_visible(n) and node_allowed(request.user,n) and (n.kind=='folder' or n.published_id)])})
@@ -111,7 +113,7 @@ def edit(request,pk):
             services.save_revision(request.user,node.pk,request.POST.get('title',node.title),request.POST.get('markdown',''),request.POST.get('version',-1),request.POST.get('reason',''))
             messages.success(request,'새 버전을 저장했습니다.'); return redirect('manuals:edit',pk=pk)
         except ValidationError as exc: messages.error(request,' '.join(exc.messages))
-    return render(request,'manuals/edit.html',{**context(request,node.space),'node':node,'submitted_body':request.POST.get('markdown') if request.method=='POST' else None,'editor_html':services.render_markdown(request.POST.get('markdown','')) if request.method=='POST' else (node.draft.html if node.draft else '')})
+    return render(request,'manuals/edit.html',{**context(request,node.space),'node':node,'submitted_body':request.POST.get('markdown') if request.method=='POST' else None,'editor_html':services.render_markdown(request.POST.get('markdown','')) if request.method=='POST' else (services.render_markdown(node.draft.markdown) if node.draft else '')})
 
 @login_required
 @require_POST
@@ -145,7 +147,7 @@ def action(request,pk,action):
 @login_required
 def reviews(request):
     items=ApprovalRequest.objects.filter(revision__node__space__in=spaces_for(request.user)).select_related('revision__node__space','requester')
-    items=[item for item in items if node_allowed(request.user,item.revision.node,'approve')]
+    items=[item for item in items if revision_in_scope(item.revision,item.revision.node) and node_allowed(request.user,item.revision.node,'approve')]
     return render(request,'manuals/reviews.html',{**context(request),'reviews':items})
 
 @login_required
@@ -159,7 +161,9 @@ def decision(request,pk):
 @login_required
 def review_detail(request,pk):
     review=get_object_or_404(ApprovalRequest.objects.select_related('revision__node__space'),pk=pk)
+    if not revision_in_scope(review.revision): raise Http404
     require_node(request.user,review.revision.node,'approve')
+    review.revision.html=services.render_markdown(review.revision.markdown)
     return render(request,'manuals/review_detail.html',{**context(request,review.revision.node.space),'review':review,'revision':review.revision})
 
 @login_required
@@ -209,6 +213,7 @@ def upload(request,pk):
 def download(request,pk):
     attachment=get_object_or_404(ManualAttachment.objects.select_related('node__space'),pk=pk)
     node=get_node(request,attachment.node_id,'download_attachment')
+    if not revision_in_scope(attachment.revision,node): raise Http404
     in_publication = attachment.revision_id == node.published_id or bool(node.published_id and node.published.attachments.filter(file=attachment.file.name).exists())
     if not in_publication and not node_allowed(request.user,node,'edit'): raise Http404
     inline = request.GET.get('inline') == '1' and Path(attachment.name).suffix.lower() in {'.png', '.jpg', '.jpeg'}
@@ -271,6 +276,7 @@ def permission(request,pk):
         rule=get_object_or_404(ManualPermissionAssignment,node=node,pk=request.POST['remove']);rule.delete()
     else:
         form=PermissionForm(request.POST)
+        form.instance.node=node
         if form.is_valid():
             rule=form.save(commit=False);rule.node=node;rule.save()
         else: messages.error(request,' '.join(str(e) for e in form.errors.values()))

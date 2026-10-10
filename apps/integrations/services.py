@@ -2,11 +2,12 @@ from django.db import transaction
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from apps.core.services import audit
+from apps.organizations.scoping import is_org_admin, organization_group_ids
 from .models import Connection, FeatureBinding, ConfigurationRevision
 
 def usable_connections(user):
-    if user.is_superuser: return Connection.objects.filter(active=True)
-    return Connection.objects.filter(active=True).filter(Q(owner=user)|Q(shared=True,groups__isnull=True)|Q(shared=True,groups__in=user.groups.all())).distinct()
+    if is_org_admin(user): return Connection.objects.filter(active=True)
+    return Connection.objects.filter(active=True).filter(Q(owner=user)|Q(shared=True,groups__isnull=True)|Q(shared=True,groups__pk__in=organization_group_ids(user))).distinct()
 
 def resolve_binding(feature_code, user):
     binding=FeatureBinding.objects.select_related('connection','data_resource').filter(feature_code=feature_code).first()
@@ -32,4 +33,6 @@ def save_binding(form, actor):
     return obj
 
 def can_manage(user, connection):
-    return bool(user.is_authenticated and user.is_active and user.is_staff and (user.is_superuser or connection.owner_id == user.pk))
+    from apps.organizations.scoping import current_organization
+    org = current_organization()
+    return bool(org and connection.organization_id == org.pk and is_org_admin(user))
