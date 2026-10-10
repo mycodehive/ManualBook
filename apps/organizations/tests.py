@@ -284,3 +284,13 @@ class TenantIsolationTests(TestCase):
         self.client.force_login(self.a_admin)
         self.denied(self.client.post('/organizations/create/',{'name':'Unauthorized','slug':'unauthorized'}))
         self.assertFalse(Organization.objects.filter(slug='unauthorized').exists())
+
+    def test_lazy_queryset_cannot_be_reused_in_another_organization(self):
+        with organization_scope(self.a):
+            queryset=ManualNode.objects.all()
+            self.assertEqual(queryset.get().title,'ALPHA-PRIVATE')
+        with organization_scope(self.b):
+            for query in [lambda: list(queryset),queryset.exists,queryset.count,lambda: queryset.get()]:
+                with self.assertRaises(PermissionDenied): query()
+        with organization_scope(None):
+            with self.assertRaises(PermissionDenied): list(queryset)

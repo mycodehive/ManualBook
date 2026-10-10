@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 from contextlib import contextmanager
 from django.db import models
-from django.core.exceptions import ValidationError, ObjectDoesNotExist, FieldDoesNotExist
+from django.core.exceptions import ValidationError, ObjectDoesNotExist, FieldDoesNotExist, PermissionDenied
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
@@ -31,7 +31,45 @@ def organization_group_ids(user,organization=None):
     return set(member.groups.values_list('group_id',flat=True)) if member else set()
 
 class ScopedQuerySet(models.QuerySet):
+    def _clone(self):
+        result=super()._clone()
+        result._bound_scope=getattr(self,'_bound_scope',False)
+        result._scope_id=getattr(self,'_scope_id',None)
+        return result
+    def _guard(self):
+        if not getattr(self,'_bound_scope',False): return
+        org=current_organization()
+        if getattr(self,'_scope_id',None)!=(org.pk if org else None):
+            raise PermissionDenied('이 조회의 조직 컨텍스트가 변경되었습니다.')
+    def _fetch_all(self):
+        self._guard()
+        return super()._fetch_all()
+    def get(self,*args,**kwargs):
+        self._guard()
+        return super().get(*args,**kwargs)
+    def count(self):
+        self._guard()
+        return super().count()
+    def exists(self):
+        self._guard()
+        return super().exists()
+    def aggregate(self,*args,**kwargs):
+        self._guard()
+        return super().aggregate(*args,**kwargs)
+    def iterator(self,*args,**kwargs):
+        self._guard()
+        return super().iterator(*args,**kwargs)
+    async def aiterator(self,*args,**kwargs):
+        self._guard()
+        async for obj in super().aiterator(*args,**kwargs): yield obj
+    def delete(self):
+        self._guard()
+        return super().delete()
+    def create(self,**kwargs):
+        self._guard()
+        return super().create(**kwargs)
     def update(self,**kwargs):
+        self._guard()
         if 'organization' in kwargs or 'organization_id' in kwargs: raise ValidationError('조직 소유권을 일괄 변경할 수 없습니다.')
         for name in kwargs:
             try: field=self.model._meta.get_field(name)
@@ -39,9 +77,11 @@ class ScopedQuerySet(models.QuerySet):
             if field.is_relation: raise ValidationError('관련 객체 변경은 save()를 사용하세요.')
         return super().update(**kwargs)
     def bulk_create(self,objs,**kwargs):
+        self._guard()
         for obj in objs: obj._validate_scope(); obj.full_clean()
         return super().bulk_create(objs,**kwargs)
     def bulk_update(self,objs,fields,**kwargs):
+        self._guard()
         if any(self.model._meta.get_field(name).is_relation for name in fields): raise ValidationError('관련 객체 변경은 save()를 사용하세요.')
         for obj in objs: obj._validate_scope()
         return super().bulk_update(objs,fields,**kwargs)
@@ -49,7 +89,9 @@ class ScopedQuerySet(models.QuerySet):
 class ScopedManager(models.Manager.from_queryset(ScopedQuerySet)):
     def get_queryset(self):
         queryset=super().get_queryset(); org=current_organization()
-        return queryset.filter(organization_id=org.pk) if org else queryset.none()
+        queryset=queryset.filter(organization_id=org.pk) if org else queryset.none()
+        queryset._bound_scope=True; queryset._scope_id=org.pk if org else None
+        return queryset
 
 class ScopedModel(models.Model):
     organization=models.ForeignKey('organizations.Organization',on_delete=models.PROTECT)
