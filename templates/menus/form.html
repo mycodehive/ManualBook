@@ -1,1 +1,21 @@
-{% extends 'base.html' %}{% block content %}<h1>메뉴 {% if menu %}수정{% else %}추가{% endif %}</h1><section class="card"><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn" type="submit">저장</button> <a class="btn btn-secondary" href="{% url 'menu_list' %}">취소</a></form>{% if menu %}<hr><form method="post" action="{% url 'menu_delete' menu.pk %}">{% csrf_token %}<p>하위 메뉴가 없는 경우에 삭제할 수 있습니다.</p><button class="btn btn-danger" type="submit">메뉴 삭제</button></form>{% endif %}</section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}메뉴 {% if menu %}수정{% else %}추가{% endif %} · ManualBook{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>메뉴 {% if menu %}수정{% else %}추가{% endif %}</h1><p>메뉴의 위치와 접근 권한을 설정합니다.</p></div></div>
+{% include 'partials/settings_tabs.html' with settings_section='menus' %}
+<section class="card">
+    <form method="post" class="platform-form">
+        {% csrf_token %}
+        {% include 'partials/form_fields.html' with form=form %}
+        <div class="form-actions"><button type="submit" class="btn btn-primary">저장</button><a class="btn btn-secondary" href="{% url 'menu_list' %}">취소</a></div>
+    </form>
+</section>
+{% if menu %}
+<section class="card danger-zone">
+    <h2>메뉴 삭제</h2><p>하위 메뉴가 없는 경우에 삭제할 수 있습니다.</p>
+    <form method="post" action="{% url 'menu_delete' menu.pk %}" data-confirm-delete="이 메뉴를 삭제할까요?">
+        {% csrf_token %}<button class="btn btn-danger" type="submit">메뉴 삭제</button>
+    </form>
+</section>
+{% endif %}
+{% endblock %}

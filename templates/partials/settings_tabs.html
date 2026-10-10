@@ -1,0 +1,9 @@
+{% if organization_admin and not content_menu_tabs %}
+<nav class="content-menu-tabs settings-tabs" aria-label="조직 환경설정">
+{% if settings_tab_access.basic %}  <a href="{% url 'site_settings' %}"{% if settings_section == 'basic' %} class="active" aria-current="page"{% endif %}>기본정보</a>{% endif %}
+{% if settings_tab_access.menus %}  <a href="{% url 'menu_list' %}"{% if settings_section == 'menus' %} class="active" aria-current="page"{% endif %}>메뉴 관리</a>{% endif %}
+{% if settings_tab_access.members %}  <a href="{% url 'organization_members' %}"{% if settings_section == 'members' %} class="active" aria-current="page"{% endif %}>사용자 · 부서 · 그룹</a>{% endif %}
+{% if settings_tab_access.integrations %}  <a href="{% url 'integration_list' %}"{% if settings_section == 'integrations' %} class="active" aria-current="page"{% endif %}>API 연결</a>{% endif %}
+{% if settings_tab_access.audit %}  <a href="{% url 'audit_log' %}"{% if settings_section == 'audit' %} class="active" aria-current="page"{% endif %}>감사 로그</a>{% endif %}
+</nav>
+{% endif %}

@@ -57,3 +57,11 @@
         passwordToggle.setAttribute('aria-pressed', String(visible));
     });
 })();
+
+// Shared confirmation for destructive actions; POST and CSRF remain server-enforced.
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (form instanceof HTMLFormElement && form.hasAttribute('data-confirm-delete')) {
+        if (!window.confirm(form.getAttribute('data-confirm-delete') || '삭제하시겠습니까?')) event.preventDefault();
+    }
+});

@@ -1,0 +1,5 @@
+<nav class="content-menu-tabs settings-tabs" aria-label="조직 구성 관리">
+  <a href="{% url 'organization_members' %}"{% if management_section == 'members' %} class="active" aria-current="page"{% endif %}>구성원</a>
+  <a href="{% url 'organization_directory' 'departments' %}"{% if management_section == 'departments' %} class="active" aria-current="page"{% endif %}>부서</a>
+  <a href="{% url 'organization_directory' 'groups' %}"{% if management_section == 'groups' %} class="active" aria-current="page"{% endif %}>그룹</a>
+</nav>

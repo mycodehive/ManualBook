@@ -8,12 +8,12 @@
     <script src="{% static 'js/theme-init.js' %}?v=20261008" ></script>
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}?v=20261008-profile">
-    <link rel="stylesheet" href="{% static 'css/platform-adapters.css' %}">
+    <link rel="stylesheet" href="{% static 'css/platform-adapters.css' %}?v=20261010-org-ui">
     {{ brand_color|json_script:'platform-brand-color' }}
     <script src="{% static 'js/branding.js' %}" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
-<body {% if request.GET.popup %}class="popup-layout"{% endif %}>
+<body class="{% if organization %}organization-workspace{% endif %}{% if request.GET.popup %} popup-layout{% endif %}">
 <a class="skip-link" href="#main-content">본문으로 이동</a>
 {% if user.is_authenticated %}
     {% if not request.GET.popup %}
@@ -26,7 +26,7 @@
         <nav class="top-nav" aria-label="주요 메뉴">
             <a href="/organizations/">조직 선택{% if organization %} · {{ organization.name }}{% endif %}</a>
             <a href="{% url 'home' %}"{% if request.path_info == '/home/' %} class="active"{% endif %}>대시보드</a>
-            {% if organization_admin %}<a href="{% url 'site_settings' %}">환경설정</a>{% endif %}
+            {% if organization_admin and settings_tab_access.basic %}<a href="{% url 'site_settings' %}"{% if settings_page %} class="active" aria-current="page"{% endif %}>환경설정</a>{% endif %}
         </nav>
         <div class="toolbar-end">
             <button type="button" class="icon-button" data-theme-toggle aria-label="화면 테마 변경" aria-pressed="false">◐</button>
@@ -60,7 +60,7 @@
 {% endif %}
 
 
-<script src="{% static 'js/platform.js' %}?v=20261008-dark" defer></script>
+<script src="{% static 'js/platform.js' %}?v=20261010-org-ui" defer></script>
 <script src="{% static 'js/sidebar-state.js' %}?v=20261007" defer></script>
 {% block extra_js %}{% endblock %}
 {% block extra_scripts %}{% endblock %}

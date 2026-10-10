@@ -113,7 +113,9 @@ def edit(request,pk):
             services.save_revision(request.user,node.pk,request.POST.get('title',node.title),request.POST.get('markdown',''),request.POST.get('version',-1),request.POST.get('reason',''))
             messages.success(request,'새 버전을 저장했습니다.'); return redirect('manuals:edit',pk=pk)
         except ValidationError as exc: messages.error(request,' '.join(exc.messages))
-    return render(request,'manuals/edit.html',{**context(request,node.space),'node':node,'submitted_body':request.POST.get('markdown') if request.method=='POST' else None,'editor_html':services.render_markdown(request.POST.get('markdown','')) if request.method=='POST' else (services.render_markdown(node.draft.markdown) if node.draft else '')})
+    can_publish = node_allowed(request.user,node,'publish' if node.space.require_approval else 'edit')
+    publish_ready = bool(node.draft and (not node.space.require_approval or node.draft.approvals.filter(status='approved').exists()))
+    return render(request,'manuals/edit.html',{**context(request,node.space),'node':node,'can_publish':can_publish,'publish_ready':publish_ready,'submitted_body':request.POST.get('markdown') if request.method=='POST' else None,'editor_html':services.render_markdown(request.POST.get('markdown','')) if request.method=='POST' else (services.render_markdown(node.draft.markdown) if node.draft else '')})
 
 @login_required
 @require_POST
