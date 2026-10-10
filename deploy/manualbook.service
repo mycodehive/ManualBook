@@ -1,0 +1,23 @@
+[Unit]
+Description=ManualBook Django application
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=manualbook
+Group=manualbook
+WorkingDirectory=/opt/manualbook/current
+EnvironmentFile=/etc/manualbook/manualbook.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/manualbook/current/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/manualbook
+
+[Install]
+WantedBy=multi-user.target

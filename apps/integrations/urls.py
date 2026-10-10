@@ -1,0 +1,3 @@
+from django.urls import path
+from . import views
+urlpatterns=[path('configuration/',views.configuration_transfer,name='configuration_transfer'),path('configuration/export/',views.configuration_export,name='configuration_export'),path('binding/<int:pk>/revisions/<int:number>/restore/',views.restore_revision,name='binding_restore'),path('<str:kind>/<int:pk>/delete/',views.delete,name='integration_delete'),path('',views.index,name='integration_list'),path('connections/<int:pk>/validate/',views.validate_connection,name='connection_validate'),path('<str:kind>/create/',views.edit,name='integration_create'),path('<str:kind>/<int:pk>/edit/',views.edit,name='integration_edit')]

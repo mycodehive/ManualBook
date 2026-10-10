@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}로그인 · {{ company_name }}{% endblock %}
+{% block public_content %}
+<section class="login-shell">
+  <div class="login-card">
+    <header class="login-header">
+      <span class="login-eyebrow">{{ company_name }}</span>
+      <h1>매뉴얼 워크스페이스</h1>
+      <p class="login-description">계정으로 로그인하여 팀의 지식과 업무 기준을 확인하세요.</p>
+    </header>
+    <form method="post" class="login-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="login-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="login-field"><label for="id_username">사용자명</label>{{ form.username }}{{ form.username.errors }}</div>
+      <div class="login-field"><label for="id_password">비밀번호</label><div class="password-input-wrap">{{ form.password }}<button type="button" class="password-toggle" data-password-toggle aria-label="비밀번호 보기" aria-pressed="false">보기</button></div>{{ form.password.errors }}</div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="login-submit">로그인</button>
+    </form>
+    <p class="login-links">계정 및 접근 권한은 조직 관리자에게 문의하세요.</p>
+  </div>
+</section>
+{% endblock %}

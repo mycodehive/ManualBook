@@ -1,0 +1,7 @@
+{% if content_menu_tabs %}
+<nav class="content-menu-tabs" aria-label="업무 탭">
+{% for item in content_menu_tabs %}<a href="{% if item.navigation_url == '#' %}#{% else %}{{ item.tab_url }}{% if cycle and not item.is_external %}?cycle={{ cycle.pk }}{% endif %}{% endif %}"{% if item.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}{% if item.tab_current %} class="active" aria-current="page"{% endif %}>{{ item.name }}</a>{% endfor %}
+</nav>
+<style>.content-menu-tabs {display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:20px;padding-bottom:8px;}.content-menu-tabs a {padding:10px 14px;border-radius:8px;color:var(--ink);background:var(--surface-soft);}.content-menu-tabs a.active {background:var(--accent);color:var(--accent-contrast,#fff);font-weight:700;}</style>
+{% endif %}
+

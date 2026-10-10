@@ -1,0 +1,73 @@
+name: ManualBook quality
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: 'true'
+      DJANGO_SECRET_KEY: 'ci-only-secret-not-for-production-012345678901234567890123456789'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-cjk
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run python manage.py check
+      - run: uv run python manage.py makemigrations --check --dry-run
+      - run: uv run python manage.py migrate --noinput
+      - run: uv run python manage.py bootstrap
+      - run: uv run python manage.py bootstrap
+      - run: uv run python manage.py test
+      - run: uv run python manage.py collectstatic --noinput
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: manualbook
+          POSTGRES_PASSWORD: ci-only-local-db-password
+          POSTGRES_DB: manualbook
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U manualbook"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DJANGO_DEBUG: 'true'
+      DATABASE_URL: postgresql://manualbook:ci-only-local-db-password@127.0.0.1:5432/manualbook
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-cjk
+      - run: uv sync --frozen
+      - run: uv run python manage.py migrate --noinput
+      - run: uv run python manage.py test
+  editor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv export --frozen --no-dev --no-hashes --format requirements-txt > /tmp/manualbook-requirements.txt
+      - run: uvx pip-audit -r /tmp/manualbook-requirements.txt
