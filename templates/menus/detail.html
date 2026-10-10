@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}{{ menu.name }} · ManualBook{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>{{ menu.name }}</h1><p>{{ menu.description|linebreaksbr }}</p></div></div>
+<section class="card"><h2>하위 메뉴</h2><div class="table-wrap"><table><thead><tr><th>메뉴명</th><th>설명</th></tr></thead><tbody>{% for child in children %}<tr><td><a href="{{ child.navigation_url }}"{% if child.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ child.name }}</a></td><td>{{ child.description }}</td></tr>{% empty %}<tr><td colspan="2">접근 가능한 하위 메뉴가 없습니다.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

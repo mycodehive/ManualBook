@@ -1,0 +1,28 @@
+{% if form.non_field_errors %}
+<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+{% endif %}
+{% for field in form.hidden_fields %}
+{{ field }}
+{% if field.errors %}<div class="form-errors" role="alert"><strong>{{ field.label }}</strong>{{ field.errors }}</div>{% endif %}
+{% endfor %}
+{% for field in form.visible_fields %}
+{% if field.field.widget.input_type == 'radio' or field.field.widget.input_type == 'checkbox' and field.field.widget.allow_multiple_selected %}
+<fieldset class="form-field{% if field.errors %} has-error{% endif %}">
+    <legend class="field-label">{{ field.label }}{% if field.field.required %}<span class="required-indicator" aria-hidden="true"> *</span>{% endif %}</legend>
+    <div class="checkbox-options">{{ field }}</div>
+    {% if field.help_text %}<div class="field-help help-text" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</div>{% endif %}
+    {% if field.errors %}<div class="field-errors" role="alert">{{ field.errors }}</div>{% endif %}
+</fieldset>
+{% else %}
+<div class="form-field{% if field.field.widget.input_type == 'checkbox' %} checkbox-field{% endif %}{% if field.errors %} has-error{% endif %}">
+    {% if field.field.widget.input_type == 'checkbox' %}
+    <label for="{{ field.id_for_label }}">{{ field.label }} {{ field }}</label>
+    {% else %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required-indicator" aria-hidden="true"> *</span>{% endif %}</label>
+    {{ field }}
+    {% endif %}
+    {% if field.help_text %}<div class="field-help help-text" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</div>{% endif %}
+    {% if field.errors %}<div class="field-errors" role="alert">{{ field.errors }}</div>{% endif %}
+</div>
+{% endif %}
+{% endfor %}

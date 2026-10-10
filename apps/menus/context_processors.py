@@ -3,7 +3,7 @@ from apps.core.models import SiteConfiguration
 from .models import Menu
 from apps.organizations.scoping import current_organization, is_org_admin, organization_group_ids
 from .permissions import can_access_menu
-from .registry import matches_path
+from .registry import matches_path, BASELINE_ROUTES
 
 def navigation(request):
     site = SiteConfiguration.objects.first()
@@ -13,11 +13,18 @@ def navigation(request):
     by_id = {m.pk:m for m in menus}; children = {}
     for m in menus: children.setdefault(m.parent_menu_id,[]).append(m)
     groups = organization_group_ids(request.user)
+    routes = {'basic':'/settings/', 'menus':'/menus/', 'members':'/accounts/', 'integrations':'/settings/integrations/', 'audit':'/settings/audit/'}
+    result['settings_tab_access'] = {
+        section: all(can_access_menu(request.user, menu, by_id, groups) for menu in menus
+                     if matches_path(path, menu.url) or matches_path(path, BASELINE_ROUTES.get(menu.code, '')))
+        for section, path in routes.items()
+    }
+    result['settings_page'] = request.path_info.startswith(('/settings/', '/menus/', '/organization/'))
     def build(menu, seen):
         if menu.pk in seen or not can_access_menu(request.user, menu, by_id, groups): return None
         menu.visible_children = [node for child in children.get(menu.pk,[]) if (node := build(child,seen|{menu.pk})) is not None]
         if not menu.url and not menu.visible_children: return None
-        menu.is_current = matches_path(request.path_info, menu.url)
+        menu.is_current = matches_path(request.path_info, menu.url) or (menu.code == 'settings.users' and request.path_info.startswith('/organization/'))
         menu.is_expanded = menu.is_current or any(c.is_expanded for c in menu.visible_children)
         return menu
     result['sidebar_menus'] = [n for m in children.get(None,[]) if (n:=build(m,set())) is not None]

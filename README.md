@@ -81,3 +81,7 @@ uv run --frozen python manage.py collectstatic --noinput
 - `scripts/backup.sh`, `scripts/restore_verify.sh`: 유지보수 백업 및 빈 DB/디렉터리 복구 훈련
 
 배포 서버에 설치한 상태가 아닙니다. 운영 진입 전에 백업 복구 훈련, 선택한 DB의 동시성, TLS/private media 및 권한 smoke를 검증하세요. 원본 UI 자산과 의존성의 배포 라이선스를 외부 배포 전에 확인해야 합니다.
+
+## 메뉴 관리
+
+조직별 메뉴 관리에서 활성 상태 필터, 최대 3단계 계층 이동(드래그 및 선택 폼), 그룹 권한, JSON 가져오기·내보내기를 제공합니다. 자세한 사용법과 격리 정책은 [메뉴 관리 문서](docs/MENU_MANAGEMENT.md)를 참고하세요.

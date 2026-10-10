@@ -1,1 +1,14 @@
-{% extends 'base.html' %}{% block content %}<section class="card" style="max-width:520px;margin:40px auto"><h1>내 프로필</h1><form method="post">{% csrf_token %}{{ form.as_p }}<input type="hidden" name="next" value="{{ next }}"><button class="btn" type="submit">내 프로필</button></form><p><a href="{% url 'account_password_change' %}">비밀번호 변경</a></p></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}내 프로필 · ManualBook{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>내 프로필</h1><p>내 계정의 기본 정보를 관리합니다.</p></div></div>
+{% include 'partials/account_tabs.html' with account_section='profile' %}
+<section class="card">
+    <form method="post" class="platform-form">
+        {% csrf_token %}
+        {% include 'partials/form_fields.html' with form=form %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="form-actions"><button class="btn btn-primary" type="submit">저장</button><a class="btn btn-secondary" href="{% url 'home' %}">취소</a></div>
+    </form>
+</section>
+{% endblock %}

@@ -6,6 +6,7 @@ from django.db import transaction,IntegrityError
 from django.db.models.deletion import ProtectedError
 from django.contrib import messages
 from django.shortcuts import render,redirect,get_object_or_404
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from apps.core.services import audit
 from .models import Organization,Membership,Department,OrganizationGroup
@@ -45,7 +46,7 @@ def organization_edit(request,pk=None):
                     audit(request.user,'organization.updated' if obj else 'organization.created',org)
             messages.success(request,'조직을 저장했습니다.'); return redirect('organization_list')
         except (ValidationError,IntegrityError) as exc: form.add_error(None,exc.messages if isinstance(exc,ValidationError) else '중복된 조직 또는 아이디입니다.')
-    return render(request,'organizations/form.html',{'form':form,'title':'조직 수정' if obj else '조직 추가'})
+    return render(request,'organizations/form.html',{'form':form,'title':'조직 수정' if obj else '조직 추가','cancel_url':reverse('organization_list')})
 
 @login_required
 @require_org_admin
@@ -74,7 +75,7 @@ def member_edit(request,pk=None):
                 if not obj: audit(request.user,'membership.created',saved)
             messages.success(request,'구성원 정보를 저장했습니다.'); return redirect('organization_members')
         except (ValidationError,IntegrityError) as exc: form.add_error(None,exc.messages if isinstance(exc,ValidationError) else '이미 등록된 아이디입니다.')
-    return render(request,'organizations/form.html',{'form':form,'title':'구성원 수정' if obj else '구성원 추가'})
+    return render(request,'organizations/form.html',{'form':form,'title':'구성원 수정' if obj else '구성원 추가','cancel_url':reverse('organization_members'),'management_section':'members'})
 
 @login_required
 @require_org_admin
@@ -98,7 +99,7 @@ def directory_edit(request,kind,pk=None):
         with transaction.atomic():
             saved=form.save(); audit(request.user,kind+'.updated',saved)
         messages.success(request,'저장했습니다.'); return redirect('organization_directory',kind=kind)
-    return render(request,'organizations/form.html',{'form':form,'title':'부서 설정' if kind=='departments' else '그룹 설정'})
+    return render(request,'organizations/form.html',{'form':form,'title':'부서 설정' if kind=='departments' else '그룹 설정','cancel_url':reverse('organization_directory',args=[kind]),'management_section':kind})
 
 @login_required
 @require_org_admin

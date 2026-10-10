@@ -15,6 +15,12 @@ def validate_menu_url(value):
     URLValidator(schemes=['http', 'https'])(value)
 
 
+def validate_workspace_name(value):
+    from django.core.exceptions import ValidationError
+    if not isinstance(value,str) or value in ('.','..') or '/' in value or '\\' in value or any(ord(c)<32 or ord(c)==127 for c in value):
+        raise ValidationError('작업 폴더 이름에는 경로 구분자, 상위 경로 또는 제어 문자를 사용할 수 없습니다.')
+
+
 class Menu(ScopedModel):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50)
@@ -68,6 +74,10 @@ class Menu(ScopedModel):
         from django.core.exceptions import ValidationError
         super().clean()
         self.url = self.url.strip()
+        validate_workspace_name(self.workspace_dir_name)
+        from apps.organizations.models import OrganizationGroup
+        from .operations import validate_rules
+        validate_rules(self.inherited_group_rules,set(OrganizationGroup.objects.values_list('group_id',flat=True)))
         try:
             validate_menu_url(self.url)
         except ValidationError as exc:
@@ -76,6 +86,8 @@ class Menu(ScopedModel):
         parent = self.parent_menu
         depth = 1
         while parent is not None:
+            if parent.organization_id != self.organization_id:
+                raise ValidationError({'parent_menu':'같은 조직의 상위 메뉴를 선택하세요.'})
             if parent.pk in seen:
                 raise ValidationError({'parent_menu': '자기 자신이나 하위 메뉴를 상위 메뉴로 선택할 수 없습니다.'})
             seen.add(parent.pk)

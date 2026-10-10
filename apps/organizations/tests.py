@@ -71,6 +71,61 @@ class TenantIsolationTests(TestCase):
         response=self.client.get(self.url(self.a,reverse('manuals:spaces')))
         self.assertNotContains(response,self.url(self.a,reverse('manuals:space_create')))
 
+    def test_organization_submenus_share_forms_tabs_and_scoped_actions(self):
+        from django.urls import reverse
+        self.client.force_login(self.a_admin)
+        data=self.tenants['alpha']
+        with organization_scope(self.a):
+            menu=Menu.objects.get(code='dashboard')
+        routes=[
+            ('home',[]),('site_settings',[]),('menu_list',[]),('menu_create',[]),('menu_edit',[menu.pk]),
+            ('organization_members',[]),('organization_member_create',[]),('organization_member_edit',[data['manager'].pk]),
+            ('organization_directory',['departments']),('organization_directory',['groups']),
+            ('organization_directory_create',['departments']),('organization_directory_edit',['groups',data['group'].pk]),
+            ('integration_list',[]),('integration_create',['connection']),('integration_create',['resource']),
+            ('integration_create',['binding']),('integration_edit',['connection',data['connection'].pk]),
+            ('configuration_transfer',[]),('audit_log',[]),('account_profile',[]),('account_password_change',[]),
+            ('manuals:index',[]),('manuals:spaces',[]),('manuals:space',[data['space'].pk]),
+            ('manuals:space_settings',[data['space'].pk]),('manuals:page',[data['node'].pk]),
+            ('manuals:edit',[data['node'].pk]),('manuals:history',[data['node'].pk]),
+            ('manuals:reviews',[]),('manuals:review_detail',[data['review'].pk]),('manuals:trash',[data['space'].pk]),
+        ]
+        for name,args in routes:
+            with self.subTest(route=name,args=args):
+                response=self.client.get(self.url(self.a,reverse(name,args=args)))
+                self.assertEqual(response.status_code,200)
+                self.assertContains(response,'organization-workspace')
+                self.assertContains(response,'platform-adapters.css?v=20261010-org-ui')
+                self.assertContains(response,'class="page-header"')
+                self.assertNotContains(response,'BETA-PRIVATE')
+        response=self.client.get(self.url(self.a,reverse('organization_member_edit',args=[data['manager'].pk])))
+        self.assertContains(response,'class="platform-form"')
+        self.assertContains(response,'checkbox-field')
+        self.assertContains(response,'checkbox-options')
+        self.assertContains(response,self.url(self.a,reverse('organization_members')))
+
+    def test_disabled_settings_menu_is_hidden_from_shared_tabs(self):
+        from django.urls import reverse
+        with organization_scope(self.a):
+            menu=Menu.objects.get(code='settings.integrations')
+            menu.is_active=False;menu.save(update_fields=['is_active'])
+        self.client.force_login(self.a_admin)
+        response=self.client.get(self.url(self.a,reverse('organization_members')))
+        self.assertEqual(response.status_code,200)
+        self.assertNotContains(response,'href="'+self.url(self.a,reverse('integration_list'))+'"')
+        self.denied(self.client.get(self.url(self.a,reverse('integration_list'))))
+
+    def test_approval_required_editor_does_not_see_publish_action(self):
+        from django.urls import reverse
+        data=self.tenants['alpha']
+        with organization_scope(self.a):
+            space=data['space'];space.require_approval=True;space.save(update_fields=['require_approval'])
+        self.client.force_login(self.a_user)
+        response=self.client.get(self.url(self.a,reverse('manuals:edit',args=[data['node'].pk])))
+        self.assertEqual(response.status_code,200)
+        self.assertNotContains(response,'action="'+self.url(self.a,reverse('manuals:action',args=[data['node'].pk,'publish']))+'"')
+        self.assertContains(response,'관리·승인 권한이 있는 구성원이 게시합니다.')
+
     def test_default_manager_without_context_returns_no_tenant_rows(self):
         with organization_scope(None):
             for model in [Membership,OrganizationGroup,Department,SiteConfiguration,AuditEvent,Menu,Connection,DataResource,FeatureBinding,ManualSpace,ManualNode,ManualRevision,ManualAttachment,ApprovalRequest]:

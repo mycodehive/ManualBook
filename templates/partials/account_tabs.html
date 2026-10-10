@@ -1,0 +1,4 @@
+<nav class="content-menu-tabs account-tabs" aria-label="내 계정 설정">
+  <a href="{% url 'account_profile' %}"{% if account_section == 'profile' %} class="active" aria-current="page"{% endif %}>내 정보</a>
+  <a href="{% url 'account_password_change' %}"{% if account_section == 'password' %} class="active" aria-current="page"{% endif %}>비밀번호 변경</a>
+</nav>
