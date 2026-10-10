@@ -21,7 +21,7 @@ class ManualSecurityTests(TestCase):
         User=get_user_model()
         self.writer=User.objects.create_user('writer',password='longpassword!')
         self.reader=User.objects.create_user('reader',password='longpassword!')
-        self.manager=User.objects.create_user('manager',password='longpassword!')
+        self.manager=User.objects.create_user('manual-manager',password='longpassword!')
         self.stranger=User.objects.create_user('stranger',password='longpassword!')
         self.edit=Group.objects.create(name='Writers'); self.view=Group.objects.create(name='Readers'); self.approve=Group.objects.create(name='Approvers')
         self.writer_membership=Membership.objects.create(user=self.writer,role='member')

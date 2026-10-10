@@ -61,8 +61,12 @@ class Membership(ScopedModel):
     def __str__(self): return str(self.user)
     @property
     def display_username(self):
-        prefix='org'+str(self.organization_id)+'__'
-        return self.user.username[len(prefix):] if self.user.username.startswith(prefix) else self.user.username
+        from django.core.exceptions import ObjectDoesNotExist
+        try:
+            return self.user.public_identity.public_username
+        except ObjectDoesNotExist:
+            return self.user.username
+
 
 class LoginThrottle(models.Model):
     key=models.CharField(max_length=64,primary_key=True)

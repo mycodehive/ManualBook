@@ -1,6 +1,5 @@
 from functools import wraps
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied,ValidationError
 from django.db import transaction,IntegrityError
 from django.db.models.deletion import ProtectedError
@@ -13,7 +12,7 @@ from .models import Organization,Membership,Department,OrganizationGroup
 from .forms import OrganizationForm,MembershipForm,DepartmentForm,OrganizationGroupForm
 from .scoping import organization_scope,current_organization
 from .decorators import require_org_admin
-from .backends import organization_username
+from apps.accounts.identity import create_identity_user
 
 def global_admin(view):
     @wraps(view)
@@ -39,7 +38,7 @@ def organization_edit(request,pk=None):
                 with organization_scope(org):
                     if obj is None:
                         data=form.cleaned_data
-                        user=get_user_model().objects.create_user(username=organization_username(org,data['admin_username']),email=data.get('admin_email',''),password=data['admin_password'])
+                        user=create_identity_user(username=data['admin_username'],email=data.get('admin_email',''),password=data['admin_password'])
                         Membership.objects.create(user=user,role='admin',active=True)
                         from apps.core.bootstrap import seed_platform
                         seed_platform()
@@ -69,7 +68,7 @@ def member_edit(request,pk=None):
                         raise ValidationError('마지막 활성 조직 관리자는 해제할 수 없습니다.')
                 else:
                     data=form.cleaned_data
-                    saved.user=get_user_model().objects.create_user(username=organization_username(org,data['username']),email=data.get('email',''),first_name=data.get('first_name',''),password=data['password'])
+                    saved.user=create_identity_user(username=data['username'],email=data.get('email',''),first_name=data.get('first_name',''),password=data['password'])
                 if obj: audit(request.user,'membership.updated',saved)
                 saved.save(); form.save_m2m()
                 if not obj: audit(request.user,'membership.created',saved)
