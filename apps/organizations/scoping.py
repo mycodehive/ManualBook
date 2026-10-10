@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 from contextlib import contextmanager
 from django.db import models
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist, FieldDoesNotExist
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
@@ -34,7 +34,8 @@ class ScopedQuerySet(models.QuerySet):
     def update(self,**kwargs):
         if 'organization' in kwargs or 'organization_id' in kwargs: raise ValidationError('조직 소유권을 일괄 변경할 수 없습니다.')
         for name in kwargs:
-            field=self.model._meta.get_field(name.removesuffix('_id'))
+            try: field=self.model._meta.get_field(name)
+            except FieldDoesNotExist: field=self.model._meta.get_field(name.removesuffix('_id'))
             if field.is_relation: raise ValidationError('관련 객체 변경은 save()를 사용하세요.')
         return super().update(**kwargs)
     def bulk_create(self,objs,**kwargs):
@@ -69,7 +70,8 @@ class ScopedModel(models.Model):
         from .models import Membership,OrganizationGroup
         for field in self._meta.fields:
             if not field.is_relation or field.name=='organization' or not getattr(self,field.attname,None): continue
-            related=getattr(self,field.name)
+            try: related=getattr(self,field.name)
+            except ObjectDoesNotExist: raise ValidationError({field.name:'관련 객체를 찾을 수 없습니다.'})
             if isinstance(related,ScopedModel) and related.organization_id != self.organization_id: raise ValidationError({field.name:'같은 조직의 객체를 선택하세요.'})
             if isinstance(related,Group):
                 existing=OrganizationGroup.all_objects.filter(group=related)
@@ -77,7 +79,11 @@ class ScopedModel(models.Model):
                     if existing.exclude(pk=self.pk).exists(): raise ValidationError({field.name:'다른 조직에서 사용하는 그룹입니다.'})
                 elif not existing.filter(organization_id=self.organization_id).exists(): raise ValidationError({field.name:'같은 조직의 그룹을 선택하세요.'})
             if isinstance(related,get_user_model()) and self._meta.label_lower!='organizations.membership':
-                if not related.is_superuser and not Membership.all_objects.filter(organization_id=self.organization_id,user=related,active=True).exists(): raise ValidationError({field.name:'조직의 활성 사용자를 선택하세요.'})
+                if not related.is_superuser:
+                    unchanged=bool(self.pk and type(self).all_objects.filter(pk=self.pk,**{field.attname:related.pk}).exists())
+                    membership=Membership.all_objects.filter(organization_id=self.organization_id,user=related)
+                    if not unchanged: membership=membership.filter(active=True,user__is_active=True)
+                    if not membership.exists(): raise ValidationError({field.name:'같은 조직의 사용자를 선택하세요.'})
     def save(self,*args,**kwargs):
         self._validate_scope(); self.full_clean()
         return super().save(*args,**kwargs)

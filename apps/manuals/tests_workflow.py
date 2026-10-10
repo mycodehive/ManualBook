@@ -95,6 +95,6 @@ class WorkflowHttpTests(TestCase):
             response = self.client.get(tenant_reverse('manuals:download', args=[image.pk]) + '?inline=1')
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response['Content-Type'], 'image/png')
-            response.close()
+            b''.join(response.streaming_content)
             response = self.client.get(tenant_reverse('manuals:download', args=[fake.pk]) + '?inline=1')
             self.assertEqual(response.status_code, 404)

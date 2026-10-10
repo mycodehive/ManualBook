@@ -207,8 +207,9 @@ class TenantIsolationTests(TestCase):
 
     def test_programmatic_cross_org_group_assignment_is_rejected(self):
         a=self.tenants['alpha'];b=self.tenants['beta']
+        from django.db import transaction
         with organization_scope(self.a):
-            with self.assertRaises((ValidationError,PermissionDenied)): a['space'].view_groups.add(b['group'].group)
+            with self.assertRaises((ValidationError,PermissionDenied)), transaction.atomic(): a['space'].view_groups.add(b['group'].group)
             self.assertFalse(a['space'].view_groups.filter(pk=b['group'].group_id).exists())
 
     def test_async_scopes_do_not_leak_between_tasks(self):

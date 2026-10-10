@@ -69,8 +69,9 @@ def member_edit(request,pk=None):
                 else:
                     data=form.cleaned_data
                     saved.user=get_user_model().objects.create_user(username=organization_username(org,data['username']),email=data.get('email',''),first_name=data.get('first_name',''),password=data['password'])
-                audit(request.user,'membership.updated' if obj else 'membership.created',saved)
+                if obj: audit(request.user,'membership.updated',saved)
                 saved.save(); form.save_m2m()
+                if not obj: audit(request.user,'membership.created',saved)
             messages.success(request,'구성원 정보를 저장했습니다.'); return redirect('organization_members')
         except (ValidationError,IntegrityError) as exc: form.add_error(None,exc.messages if isinstance(exc,ValidationError) else '이미 등록된 아이디입니다.')
     return render(request,'organizations/form.html',{'form':form,'title':'구성원 수정' if obj else '구성원 추가'})

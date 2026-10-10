@@ -81,6 +81,7 @@ class DataResource(ScopedModel):
     config = models.JSONField('자원 옵션', default=dict, blank=True)
     schema = models.JSONField(default=dict, blank=True)
     def clean(self):
+        super().clean()
         from .validation import validate_options
         validate_options(self.config)
     class Meta:
@@ -99,6 +100,7 @@ class FeatureBinding(ScopedModel):
     revision = models.PositiveIntegerField(default=0, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
     def clean(self):
+        super().clean()
         from .validation import validate_options
         from apps.menus.registry import FEATURES
         validate_options(self.config)

@@ -17,6 +17,7 @@ jobs:
           python-version: '3.12'
           enable-cache: true
       - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-cjk
+      - run: uv lock --upgrade-package weasyprint
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run python manage.py check
@@ -48,6 +49,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-cjk
+      - run: uv lock --upgrade-package weasyprint
       - run: uv sync --frozen
       - run: uv run python manage.py migrate --noinput
       - run: uv run python manage.py test
@@ -69,5 +71,16 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
+      - name: Resolve patched PDF dependency
+        run: |
+          cp uv.lock /tmp/manualbook-old-uv.lock
+          uv lock --upgrade-package weasyprint
+          python - <<'PY'
+          from pathlib import Path
+          import difflib
+          print('LOCK_PATCH_BEGIN')
+          print(''.join(difflib.unified_diff(Path('/tmp/manualbook-old-uv.lock').read_text().splitlines(True),Path('uv.lock').read_text().splitlines(True),fromfile='a/uv.lock',tofile='b/uv.lock')),end='')
+          print('LOCK_PATCH_END')
+          PY
       - run: uv export --frozen --no-dev --no-hashes --format requirements-txt > /tmp/manualbook-requirements.txt
       - run: uvx pip-audit -r /tmp/manualbook-requirements.txt
