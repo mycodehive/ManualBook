@@ -23,5 +23,5 @@ class OrganizationBackend(ModelBackend):
         user=super().authenticate(request,username=canonical,password=password,**kwargs)
         if not user and canonical!=username:
             user=super().authenticate(request,username=username,password=password,**kwargs)
-        if user and (user.is_superuser or Membership.all_objects.filter(organization=org,user=user,active=True).exists()): return user
+        if user and not user.is_superuser and Membership.all_objects.filter(organization=org,user=user,active=True).exists(): return user
         return None

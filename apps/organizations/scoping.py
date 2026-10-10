@@ -58,10 +58,27 @@ class ScopedQuerySet(models.QuerySet):
         return super().aggregate(*args,**kwargs)
     def iterator(self,*args,**kwargs):
         self._guard()
-        return super().iterator(*args,**kwargs)
+        stream=super().iterator(*args,**kwargs)
+        def guarded():
+            try:
+                while True:
+                    self._guard()
+                    try: obj=next(stream)
+                    except StopIteration: return
+                    self._guard()
+                    yield obj
+            finally: stream.close()
+        return guarded()
     async def aiterator(self,*args,**kwargs):
-        self._guard()
-        async for obj in super().aiterator(*args,**kwargs): yield obj
+        stream=super().aiterator(*args,**kwargs)
+        try:
+            while True:
+                self._guard()
+                try: obj=await anext(stream)
+                except StopAsyncIteration: return
+                self._guard()
+                yield obj
+        finally: await stream.aclose()
     def delete(self):
         self._guard()
         return super().delete()
@@ -122,10 +139,16 @@ class ScopedModel(models.Model):
                 elif not existing.filter(organization_id=self.organization_id).exists(): raise ValidationError({field.name:'같은 조직의 그룹을 선택하세요.'})
             if isinstance(related,get_user_model()) and self._meta.label_lower!='organizations.membership':
                 if not related.is_superuser:
-                    unchanged=bool(self.pk and type(self).all_objects.filter(pk=self.pk,**{field.attname:related.pk}).exists())
-                    membership=Membership.all_objects.filter(organization_id=self.organization_id,user=related)
-                    if not unchanged: membership=membership.filter(active=True,user__is_active=True)
-                    if not membership.exists(): raise ValidationError({field.name:'같은 조직의 사용자를 선택하세요.'})
+                    if not Membership.all_objects.filter(organization_id=self.organization_id,user=related).exists():
+                        raise ValidationError({field.name:'같은 조직의 사용자를 선택하세요.'})
+    def delete(self,*args,**kwargs):
+        self._validate_scope()
+        return super().delete(*args,**kwargs)
+    def refresh_from_db(self,*args,**kwargs):
+        org=current_organization()
+        persisted=type(self).all_objects.filter(pk=self.pk).values_list('organization_id',flat=True).first()
+        if not org or persisted!=org.pk: raise PermissionDenied('다른 조직의 객체를 다시 조회할 수 없습니다.')
+        return super().refresh_from_db(*args,**kwargs)
     def save(self,*args,**kwargs):
         self._validate_scope(); self.full_clean()
         return super().save(*args,**kwargs)

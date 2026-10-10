@@ -24,7 +24,7 @@ class LegacyUpgradeTests(TransactionTestCase):
             revision=apps.get_model('manuals','ManualRevision').objects.create(node=node,number=1,title='Legacy publication',markdown='# Legacy body',html='<h1>Legacy body</h1>',author=user)
             node.draft=revision;node.published=revision;node.version=1;node.save()
             attachment=apps.get_model('manuals','ManualAttachment').objects.create(node=node,revision=revision,name='legacy.txt',file='manual_private/legacy.txt',author=user)
-            connection_obj=apps.get_model('integrations','Connection').objects.create(name='legacy-api',provider='llm',owner=user)
+            connection_obj=apps.get_model('integrations','Connection').objects.create(name='legacy-api',provider='llm',owner=user,encrypted_secrets='opaque-preserved-ciphertext')
             executor=MigrationExecutor(connection);executor.migrate(latest)
             from .models import Organization,Membership,OrganizationGroup
             from apps.manuals.models import ManualNode,ManualAttachment
@@ -42,10 +42,16 @@ class LegacyUpgradeTests(TransactionTestCase):
                 self.assertEqual(restored.draft_id,revision.pk)
                 self.assertEqual(restored.published.markdown,'# Legacy body')
                 self.assertEqual(restored.space.organization_id,org.pk)
+                self.assertEqual(set(restored.space.edit_groups.values_list('pk',flat=True)),{group.pk})
+                self.assertEqual(set(restored.space.view_groups.values_list('pk',flat=True)),{group.pk})
                 self.assertEqual(ManualAttachment.objects.get(pk=attachment.pk).file.name,'manual_private/legacy.txt')
                 self.assertEqual(SiteConfiguration.objects.get(pk=site.pk).name,'Legacy branding')
-                self.assertEqual(Menu.objects.get(pk=menu.pk).name,'Legacy dashboard')
-                self.assertEqual(Connection.objects.get(pk=connection_obj.pk).organization_id,org.pk)
+                restored_menu=Menu.objects.get(pk=menu.pk)
+                self.assertEqual(restored_menu.name,'Legacy dashboard')
+                self.assertEqual(set(restored_menu.allowed_groups.values_list('pk',flat=True)),{group.pk})
+                restored_connection=Connection.objects.get(pk=connection_obj.pk)
+                self.assertEqual(restored_connection.organization_id,org.pk)
+                self.assertEqual(restored_connection.encrypted_secrets,'opaque-preserved-ciphertext')
                 self.assertFalse(member.user.is_superuser)
         finally:
             MigrationExecutor(connection).migrate(latest)
