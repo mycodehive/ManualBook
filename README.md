@@ -3,7 +3,7 @@
 독립형 GitBook 스타일 사내 매뉴얼 플랫폼. `mycodehive/iacfgeneral_ver3`의 Enterprise Platform 공통 UI/UX·환경설정·모듈 구조를 적용하며 기존 업무 데이터와 비밀은 가져오지 않습니다. 여러 조직이 고유 슬러그 아래에서 독립적으로 사용하는 로컬 계정 기반 플랫폼입니다.
 
 ## 실행
-Python 3.12 및 uv가 필요합니다.
+Python 3.12 및 uv로 관리합니다. `.venv` 생성·의존성 설치·실행을 uv로 처리하며, 자세한 작업 흐름은 [uv 프로젝트 관리](docs/uv.md)를 참고하세요.
 
 ```bash
 cp .env.example .env
@@ -13,11 +13,11 @@ uv sync --frozen
 `.env`의 개발 설정을 확인하고 `INTEGRATION_ENCRYPTION_KEY`를 독립적으로 생성해 입력합니다.
 
 ```bash
-uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-uv run python manage.py migrate
-uv run python manage.py bootstrap
-uv run python manage.py createsuperuser
-uv run python manage.py runserver
+uv run --frozen python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+uv run --frozen python manage.py migrate
+uv run --frozen python manage.py bootstrap
+uv run --frozen python manage.py createsuperuser
+uv run --frozen python manage.py runserver
 ```
 
 사이트 최고 관리자 로그인: `http://127.0.0.1:8000/login/` (실제 URL은 `config/urls.py`). 기본 계정/비밀번호는 제공하지 않습니다. 기본 DB는 SQLite입니다. PostgreSQL과 MariaDB는 선택 옵션이며, 운영에는 HTTPS·강력한 secret·암호화 키가 필요합니다. PDF에는 Ubuntu `libpango-1.0-0`, `libpangoft2-1.0-0`와 `fonts-noto-cjk`가 필요합니다.
@@ -31,7 +31,7 @@ uv run python manage.py runserver
 | PostgreSQL (선택) | `uv sync --frozen --extra postgres` | `DATABASE_URL=postgresql://USER:URL_ENCODED_PASSWORD@HOST:5432/DB` |
 | MariaDB (선택) | `uv sync --frozen --extra mariadb` | `DATABASE_URL=mysql://USER:URL_ENCODED_PASSWORD@HOST:3306/DB` |
 
-선택 DB로 실행할 때 `uv run --extra postgres ...` 또는 `uv run --extra mariadb ...`를 사용하세요. 예: `uv run --extra mariadb python manage.py migrate`. 일반 `uv run`은 선택 드라이버를 제거할 수 있습니다. MariaDB는 Django MySQL 백엔드와 `mysqlclient`를 사용하며 `mariadb://` 별칭도 허용합니다. Ubuntu의 MariaDB 드라이버 빌드에는 `python3-dev default-libmysqlclient-dev build-essential pkg-config`가 필요할 수 있습니다.
+선택 DB로 실행할 때 `uv run --frozen --extra postgres ...` 또는 `uv run --frozen --extra mariadb ...`를 사용하세요. 예: `uv run --frozen --extra mariadb python manage.py migrate`. 일반 `uv run --frozen`은 선택 드라이버를 제거할 수 있습니다. MariaDB는 Django MySQL 백엔드와 `mysqlclient`를 사용하며 `mariadb://` 별칭도 허용합니다. Ubuntu의 MariaDB 드라이버 빌드에는 `python3-dev default-libmysqlclient-dev build-essential pkg-config`가 필요할 수 있습니다.
 
 SQLite 운영 경로는 release 코드 밖의 `DATABASE_URL=sqlite:////var/lib/manualbook/db.sqlite3`를 권장합니다. 서비스 계정에 부모 디렉터리 쓰기권한도 부여하세요. 기본 서비스는 worker 1개이며 SQLite 쓰기 트랜잭션은 IMMEDIATE, 잠금 대기 기본값은 20초입니다. PostgreSQL/MariaDB를 선택한 경우 worker 수는 부하 검증 후 조정하세요.
 
@@ -51,11 +51,11 @@ DB 선택을 바꾸면 해당 DB에 연결하며 기존 데이터를 자동 복�
 
 ## 개발 검증
 ```bash
-uv run ruff check .
-uv run python manage.py check
-uv run python manage.py makemigrations --check --dry-run
-uv run python manage.py test
-uv run python manage.py collectstatic --noinput
+uv run --frozen ruff check .
+uv run --frozen python manage.py check
+uv run --frozen python manage.py makemigrations --check --dry-run
+uv run --frozen python manage.py test
+uv run --frozen python manage.py collectstatic --noinput
 ```
 
 편집기 JS 수정 시 Node.js 환경에서 `npm ci` 및 `npm run build`로 로컬 번들을 재생성합니다. `npm test`로 편집기·자동저장 DOM 회귀 검사를 실행합니다. 일반 Python 실행에는 저장소의 빌드된 번들을 사용합니다. CI는 SQLite/PostgreSQL/MariaDB 테스트 및 의존성 audit를 실행합니다. 검증 결과와 제한 사항은 [검증 기록](docs/verification.md)을 참조하세요.
