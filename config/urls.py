@@ -1,14 +1,13 @@
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
-from django.shortcuts import redirect
 
-from apps.accounts.views import OrganizationLoginView
+from apps.accounts.views import OrganizationLoginView, entry
 admin.site.login = OrganizationLoginView.as_view()
 admin.site.has_permission = lambda request: bool(request.user.is_active and request.user.is_superuser)
 
 urlpatterns = [
-    path('', lambda request: redirect('home' if getattr(request,'organization',None) else 'organization_list')),
+    path('', entry),
     path('health/', lambda request: JsonResponse({'status': 'ok'}), name='health'),
     path('admin/', admin.site.urls),
     path('', include('apps.organizations.urls')),

@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}사용자 아이디 정책 · ManualBook{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>사용자 아이디 정책</h1><p>모든 조직에 공통으로 적용하는 사용자 생성 금지 아이디를 설정합니다.</p></div></div>
+<section class="card"><form method="post" class="platform-form">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<div class="form-actions"><button class="btn btn-primary" type="submit">저장</button><a class="btn btn-secondary" href="/organizations/">취소</a></div></form><p class="help-text">예약된 아이디 입력 시 “시스템에서 예약된 아이디입니다. 다른 아이디를 사용해주세요.”가 표시됩니다.</p></section>
+{% endblock %}

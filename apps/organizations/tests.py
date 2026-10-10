@@ -222,8 +222,7 @@ class TenantIsolationTests(TestCase):
         data={'username':'created-by-org','email':'member@example.com','first_name':'Member','role':'member','active':'on','password':'Unique-tenant-password-927!','password_confirm':'Unique-tenant-password-927!','is_staff':'on','is_superuser':'on','department':self.tenants['alpha']['department'].pk,'groups':[self.tenants['alpha']['group'].pk]}
         response=self.client.post(self.url(self.a,'/organization/members/create/'),data)
         self.assertEqual(response.status_code,302,response.content[:500])
-        from .backends import organization_username
-        created=get_user_model().objects.get(username=organization_username(self.a,'created-by-org'))
+        created=get_user_model().objects.get(username='created-by-org')
         self.assertFalse(created.is_staff);self.assertFalse(created.is_superuser)
         with organization_scope(self.a): self.assertEqual(Membership.objects.get(user=created).role,'member')
         with organization_scope(self.b): self.assertFalse(Membership.objects.filter(user=created).exists())
@@ -235,8 +234,7 @@ class TenantIsolationTests(TestCase):
         data={'username':'cross-group-attempt','email':'new@example.com','role':'member','active':'on','password':'Unique-tenant-password-927!','password_confirm':'Unique-tenant-password-927!','groups':[b['group'].pk]}
         response=self.client.post(self.url(self.a,'/organization/members/create/'),data)
         self.assertEqual(response.status_code,200,response.content[:500])
-        from .backends import organization_username
-        self.assertFalse(get_user_model().objects.filter(username=organization_username(self.a,'cross-group-attempt')).exists())
+        self.assertFalse(get_user_model().objects.filter(username='cross-group-attempt').exists())
         with organization_scope(self.a): self.assertFalse(a['member'].groups.filter(pk=b['group'].pk).exists())
 
     def test_same_codes_and_settings_are_independent(self):
@@ -303,30 +301,27 @@ class TenantIsolationTests(TestCase):
         self.assertNotContains(response,'/o/beta/')
         self.assertIsNone(current_organization())
 
-    def test_repeated_login_failures_are_limited_per_organization(self):
-        from .backends import organization_username
+    def test_repeated_login_failures_are_limited_across_organizations(self):
+        user=get_user_model().objects.create_user('same-user',password='Unique-test-password-942!')
         with organization_scope(self.a):
-            user=get_user_model().objects.create_user(organization_username(self.a,'same-user'),password='Unique-test-password-942!')
             Membership.objects.create(user=user)
         with organization_scope(self.b):
-            user=get_user_model().objects.create_user(organization_username(self.b,'same-user'),password='Unique-test-password-942!')
             Membership.objects.create(user=user)
         for _ in range(5):
             self.assertEqual(self.client.post(self.url(self.a,'/login/'),{'username':'same-user','password':'wrong'}).status_code,200)
         blocked=self.client.post(self.url(self.a,'/login/'),{'username':'same-user','password':'Unique-test-password-942!'})
         self.assertEqual(blocked.status_code,429)
         self.assertIn('Retry-After',blocked)
-        internal=organization_username(self.a,'same-user')
-        self.assertEqual(self.client.post(self.url(self.a,'/login/'),{'username':internal,'password':'Unique-test-password-942!'}).status_code,429)
-        self.assertEqual(self.client.post(self.url(self.b,'/login/'),{'username':'same-user','password':'Unique-test-password-942!'}).status_code,302)
+        self.assertEqual(self.client.post(self.url(self.b,'/login/'),{'username':'SAME-USER','password':'Unique-test-password-942!'}).status_code,429)
+        self.assertEqual(self.client.post('/login/',{'username':'same-user','password':'Unique-test-password-942!'}).status_code,429)
 
-    def test_short_username_login_requires_its_own_organization(self):
-        from .backends import organization_username
+    def test_global_username_login_requires_membership_at_tenant_endpoint(self):
         with organization_scope(self.a):
-            user=get_user_model().objects.create_user(organization_username(self.a,'local-user'),password='Unique-test-password-942!')
+            user=get_user_model().objects.create_user('local-user',password='Unique-test-password-942!')
             Membership.objects.create(user=user)
         self.assertEqual(self.client.post(self.url(self.b,'/login/'),{'username':'local-user','password':'Unique-test-password-942!'}).status_code,200)
-        self.assertEqual(self.client.post('/login/',{'username':user.username,'password':'Unique-test-password-942!'}).status_code,200)
+        self.assertEqual(self.client.post('/login/',{'username':user.username,'password':'Unique-test-password-942!'}).status_code,302)
+        self.client.logout()
         self.assertEqual(self.client.post(self.url(self.a,'/login/'),{'username':'local-user','password':'Unique-test-password-942!'}).status_code,302)
 
     def test_last_active_organization_admin_cannot_be_demoted(self):
@@ -340,18 +335,18 @@ class TenantIsolationTests(TestCase):
 
     def test_global_admin_registers_organization_and_first_local_admin(self):
         self.client.force_login(self.superuser)
-        response=self.client.post('/organizations/create/',{'name':'New Company','slug':'new-company','active':'on','admin_username':'admin','admin_email':'admin@example.test','admin_password':'Unique-company-password-827!','confirmation':'Unique-company-password-827!'})
+        response=self.client.post('/organizations/create/',{'name':'New Company','slug':'new-company','active':'on','admin_username':'company-manager','admin_email':'admin@example.test','admin_password':'Unique-company-password-827!','confirmation':'Unique-company-password-827!'})
         self.assertEqual(response.status_code,302,response.content[:500])
         org=Organization.objects.get(slug='new-company')
         with organization_scope(org):
             member=Membership.objects.get(role='admin')
-            self.assertEqual(member.display_username,'admin')
+            self.assertEqual(member.display_username,'company-manager')
             self.assertFalse(member.user.is_staff)
             self.assertFalse(member.user.is_superuser)
             self.assertEqual(Menu.objects.filter(code='dashboard').count(),1)
             self.assertEqual(SiteConfiguration.objects.get().name,'New Company')
         self.client.logout()
-        self.assertEqual(self.client.post(self.url(org,'/login/'),{'username':'admin','password':'Unique-company-password-827!'}).status_code,302)
+        self.assertEqual(self.client.post(self.url(org,'/login/'),{'username':'company-manager','password':'Unique-company-password-827!'}).status_code,302)
 
     def test_organization_admin_cannot_create_global_organization(self):
         self.client.force_login(self.a_admin)
@@ -398,15 +393,17 @@ class TenantIsolationTests(TestCase):
             other=RequestFactory().post(self.url(self.a,'/login/'),{'username':'local-user'},REMOTE_ADDR='127.0.0.1',HTTP_X_REAL_IP='192.0.2.5')
             other.organization=self.a
             self.assertNotEqual(keys(request)[1][0],keys(other)[1][0])
-            other.POST=other.POST.copy();other.POST['username']='org'+str(self.a.pk)+'__local-user'
+            other.POST=other.POST.copy();other.POST['username']='LOCAL-USER'
+            other.organization=self.b
             self.assertEqual(keys(request)[0][0],keys(other)[0][0])
         request.META['REMOTE_ADDR']='192.0.2.9'
         with self.settings(TRUSTED_PROXY_IPS=['127.0.0.1']): self.assertEqual(client_address(request),'192.0.2.9')
 
-    def test_superuser_authenticates_at_global_login_only(self):
+    def test_superuser_authenticates_globally_and_at_any_active_organization(self):
         data={'username':'global-admin','password':'tenant-test-password!'}
-        self.assertEqual(self.client.post(self.url(self.a,'/login/'),data).status_code,200)
-        self.assertNotIn('_auth_user_id',self.client.session)
+        self.assertEqual(self.client.post(self.url(self.a,'/login/'),data).status_code,302)
+        self.assertEqual(int(self.client.session['_auth_user_id']),self.superuser.pk)
+        self.client.logout()
         self.assertEqual(self.client.post('/login/',data).status_code,302)
         self.assertEqual(self.client.get(self.url(self.a,'/settings/')).status_code,200)
 

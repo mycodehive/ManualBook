@@ -24,16 +24,15 @@ def client_address(request):
     return str(address)
 
 def keys(request):
+    from apps.accounts.identity import normalize_username
     org=getattr(request,'organization',None)
     scope=str(org.pk) if org else 'global'
-    username=str(request.POST.get('username','')).strip()[:150]
-    prefix='org'+str(org.pk)+'__' if org else ''
-    if prefix and username.startswith(prefix): username=username[len(prefix):]
-    username=username.casefold()
+    username=normalize_username(str(request.POST.get('username',''))[:150])
     ip=client_address(request)
     result=[]
     for kind,value,threshold in [('account',username,5),('ip',ip,20)]:
-        digest=hmac.new(settings.SECRET_KEY.encode(),f'{scope}|{kind}|{value}'.encode(),hashlib.sha256).hexdigest()
+        identity_scope='global' if kind=='account' else scope
+        digest=hmac.new(settings.SECRET_KEY.encode(),f'{identity_scope}|{kind}|{value}'.encode(),hashlib.sha256).hexdigest()
         result.append((digest,threshold))
     return result
 
