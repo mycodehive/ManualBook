@@ -5,7 +5,7 @@ from .registry import matches_path, BASELINE_ROUTES
 class MenuAccessMiddleware:
     def __init__(self, get_response): self.get_response = get_response
     def __call__(self, request):
-        if request.path_info in ('/accounts/profile/', '/accounts/password/'):
+        if request.path_info in ('/login/', '/logout/', '/accounts/profile/', '/accounts/password/'):
             return self.get_response(request)
         if request.user.is_authenticated:
             menus = list(Menu.objects.prefetch_related('allowed_groups'))

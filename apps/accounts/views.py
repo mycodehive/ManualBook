@@ -35,7 +35,11 @@ class OrganizationLoginView(LoginView):
         from apps.organizations.throttling import success
         success(self.request)
         return super().form_valid(form)
+    def get_context_data(self, **kwargs):
+        return {**super().get_context_data(**kwargs), 'public_layout': True}
     def get_success_url(self):
+        if self.request.user.is_superuser:
+            return '/organizations/'
         target = self.get_redirect_url()
         if target and permitted_login_target(self.request, target):
             return target
@@ -57,11 +61,11 @@ def csrf_failure(request, reason=''):
 
 def login_destination(request):
     """Use an active membership; multiple organizations require an explicit choice."""
+    if request.user.is_superuser:
+        return '/organizations/'
     organization = getattr(request, 'organization', None)
     if organization:
         return reverse('home')
-    if request.user.is_superuser:
-        return reverse('organization_list')
     from apps.organizations.models import Membership
     organizations = list(Membership.all_objects.filter(user=request.user, active=True,
         organization__active=True).select_related('organization').order_by('organization_id')[:2])
