@@ -1,6 +1,8 @@
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.shortcuts import render, redirect
+from django.http import Http404
+from django.views.decorators.http import require_safe
 from apps.organizations.scoping import is_org_admin
 from .models import SiteConfiguration, AuditEvent
 from .forms import SiteConfigurationForm
@@ -25,3 +27,11 @@ def settings_view(request):
 def audit_log(request):
     from django.core.paginator import Paginator
     return render(request, 'core/audit.html', {'page_obj': Paginator(AuditEvent.objects.select_related('actor'), 50).get_page(request.GET.get('page'))})
+
+
+@require_safe
+def intro(request):
+    """A global introduction page; tenant workspaces keep their existing routes."""
+    if getattr(request, 'organization', None) is not None:
+        raise Http404
+    return render(request, 'core/intro.html', {'public_layout': True})
