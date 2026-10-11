@@ -17,7 +17,11 @@ class OrganizationMiddleware:
             allowed=request.path_info == '/' or request.path_info.startswith(('/organizations/','/admin/','/static/','/login/','/logout/','/health/'))
             if not allowed:
                 return HttpResponseRedirect('/organizations/' if request.user.is_authenticated else '/login/?next=/organizations/')
-            with organization_scope(None): return self.get_response(request)
+            with organization_scope(None): response=self.get_response(request)
+            if request.user.is_authenticated or request.path_info in ('/login/', '/logout/'):
+                response['Cache-Control']='private, no-store'
+                patch_vary_headers(response,('Cookie',))
+            return response
         org=Organization.objects.filter(slug=match.group(1),active=True).first()
         if not org: raise Http404('조직을 찾을 수 없습니다.')
         inner=match.group(2) or '/'
@@ -25,7 +29,7 @@ class OrganizationMiddleware:
         if not request.user.is_authenticated and not public:
             return redirect_to_login(request.get_full_path(),'/o/'+org.slug+'/login/')
         member=Membership.all_objects.filter(organization=org,user=request.user,active=True).first() if request.user.is_authenticated else None
-        if request.user.is_authenticated and (not request.user.is_active or (not request.user.is_superuser and not member)):
+        if request.user.is_authenticated and not public and (not request.user.is_active or (not request.user.is_superuser and not member)):
             raise PermissionDenied('이 조직에 가입되어 있지 않습니다.')
         if match.group(2) is None: return HttpResponseRedirect(request.path+'/')
         request.organization=org; request.membership=member
