@@ -8,6 +8,10 @@ from .registry import matches_path, BASELINE_ROUTES
 def navigation(request):
     site = SiteConfiguration.objects.first()
     result = {'company_name': site.name if site else 'ManualBook', 'site_configuration':site, 'company_logo_url':site.logo_url if site else '', 'brand_color':site.primary_color if site else '#355fe5', 'sidebar_menus':[], 'content_menu_tabs':[], 'organization':current_organization(), 'organization_admin':is_org_admin(request.user)}
+    if getattr(request, 'public_read_allowed', False):
+        result['organization_admin'] = False
+        result['site_configuration'] = None
+        return result
     if not request.user.is_authenticated: return result
     menus = list(Menu.objects.prefetch_related('allowed_groups').order_by('order','name'))
     by_id = {m.pk:m for m in menus}; children = {}

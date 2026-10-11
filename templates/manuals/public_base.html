@@ -1,0 +1,27 @@
+{% load static %}
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ space.name }} · 공개 매뉴얼{% endblock %}</title>
+  <script src="{% static 'js/theme-init.js' %}?v=20261008"></script>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}?v=20261008-profile">
+  <link rel="stylesheet" href="{% static 'css/platform-adapters.css' %}?v=20261010-org-ui">
+  <link rel="stylesheet" href="{% static 'css/manuals.css' %}?v=20261011-public">
+  {{ brand_color|json_script:'platform-brand-color' }}
+  <script src="{% static 'js/branding.js' %}" defer></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="manual-public-layout">
+  <a class="skip-link" href="#main-content">본문으로 이동</a>
+  <header class="manual-public-header">
+    <a class="brand" href="{% url 'manuals:space' space.pk %}">{% if company_logo_url %}<img class="brand-logo" src="{{ company_logo_url }}" alt="">{% endif %}{{ company_name|default:'ManualBook' }}</a>
+    <div class="manual-inline"><span class="badge badge-neutral">공개 매뉴얼</span><button type="button" class="icon-button" data-theme-toggle aria-label="화면 테마 변경" aria-pressed="false">◐</button></div>
+  </header>
+  <main class="manual-public-content" id="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
+  <script src="{% static 'js/platform.js' %}?v=20261010-org-ui" defer></script>
+  {% block extra_js %}{% endblock %}
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

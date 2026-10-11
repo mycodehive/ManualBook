@@ -2,6 +2,8 @@ from .scoping import current_organization,is_org_admin
 from .models import Membership,Organization
 def organization_context(request):
     org=current_organization()
+    if getattr(request, 'public_read_allowed', False):
+        return {'display_username':'', 'current_organization':org, 'organization_choices':[], 'organization_admin':False}
     user=request.user
     choices=Organization.objects.filter(active=True) if user.is_authenticated and user.is_superuser else []
     if user.is_authenticated and not user.is_superuser:

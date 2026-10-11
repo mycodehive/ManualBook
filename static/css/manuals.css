@@ -115,3 +115,16 @@
     .manual-space-page .manual-space-toolbar { width: 100%; align-items: center; }
     .manual-space-page .manual-space-transfer-grid > * + * { padding-top: 16px; border-top: 1px solid var(--line); }
 }
+
+/* Public readers share the document styling without organization navigation. */
+.manual-public-layout { min-height: 100vh; }
+.manual-public-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1440px; margin: 0 auto; padding: 20px 28px; border-bottom: 1px solid var(--line, #e5e7eb); }
+.manual-public-header .brand { min-width: 0; overflow-wrap: anywhere; }
+.manual-public-content { max-width: 1440px; margin: 0 auto; padding: 28px; }
+.manual-public-content .manual-reader > * { min-width: 0; }
+.manual-public-content .manual-prose img { max-width: 100%; height: auto; }
+.manual-public-content .manual-prose { overflow-wrap: anywhere; }
+@media (max-width: 800px) {
+  .manual-public-header { padding: 16px; flex-wrap: wrap; }
+  .manual-public-content { padding: 20px 16px; }
+}

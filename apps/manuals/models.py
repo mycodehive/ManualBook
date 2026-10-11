@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 class ManualSpace(ScopedModel):
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    visibility = models.CharField('공개 범위', max_length=10, choices=[('private', '비공개'), ('public', '공개')], default='private')
     active = models.BooleanField(default=True)
     require_approval = models.BooleanField(default=True)
     allow_self_approval = models.BooleanField(default=False)
