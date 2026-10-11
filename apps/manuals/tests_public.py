@@ -94,12 +94,14 @@ class PublicManualSecurityTests(TestCase):
             response = self.client.get(self.url(f'attachments/{self.published_file.pk}/'))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(b''.join(response.streaming_content), b'published bytes')
-            response.close()
             self.assertEqual(self.client.get(self.url(f'attachments/{self.draft_file.pk}/')).status_code, 404)
             for inner in (f'spaces/{self.space.pk}/', f'nodes/{self.node.pk}/', f'attachments/{self.published_file.pk}/'):
                 response = self.client.head(self.url(inner))
                 self.assertEqual(response.status_code, 200)
-                response.close()
+                if response.streaming:
+                    # Django's test-client wrapper closes safely without closing
+                    # the transaction held by TestCase on PostgreSQL/MariaDB.
+                    list(response.streaming_content)
 
     def test_archived_or_deleted_ancestry_hides_descendants_and_attachments(self):
         with organization_scope(self.org):
