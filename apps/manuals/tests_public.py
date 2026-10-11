@@ -194,3 +194,26 @@ class PublicManualSecurityTests(TestCase):
         self.client.force_login(self.member)
         self.assertContains(self.client.get(self.url(f'nodes/{self.node.pk}/')), 'Published body')
         self.assertEqual(self.client.get(self.url('spaces/')).status_code, 403)
+
+    def test_space_editor_with_document_edit_denied_remains_read_only(self):
+        with organization_scope(self.org):
+            group = OrganizationGroup.objects.create(name='Editors')
+            Membership.objects.get(user=self.member).groups.add(group)
+            self.space.edit_groups.add(group.group)
+            ManualPermissionAssignment.objects.create(node=self.node, user=self.member, action='edit', effect='deny')
+            ManualPermissionAssignment.objects.create(node=self.node, user=self.member, action='export', effect='allow')
+        self.client.force_login(self.member)
+        response = self.client.get(self.url(f'nodes/{self.node.pk}/'))
+        self.assertContains(response, 'Published body')
+        self.assertTrue(response.context['public_reader'])
+        for route in ('edit/', 'favorite/', 'export/', 'pdf/'):
+            self.assertNotContains(response, self.url(f'nodes/{self.node.pk}/{route}'))
+        for route in ('export/', 'pdf/'):
+            self.assertEqual(self.client.get(self.url(f'nodes/{self.node.pk}/{route}')).status_code, 403)
+        for route in ('favorite/', 'actions/delete/'):
+            self.assertEqual(self.client.post(self.url(f'nodes/{self.node.pk}/{route}')).status_code, 403)
+        self.assertEqual(ManualRecentView.all_objects.count(), 0)
+        self.assertEqual(ManualFavorite.all_objects.count(), 0)
+        with organization_scope(self.org):
+            self.node.refresh_from_db()
+        self.assertFalse(self.node.deleted)

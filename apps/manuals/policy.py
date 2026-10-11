@@ -63,7 +63,7 @@ def node_allowed(user,node,action='view'):
     if not node_integrity(node) or not is_member(user): return False
     if is_org_admin(user): return True
     if not allowed(user,node.space,'view'): return False
-    if node.space.visibility == 'public' and action in ('export', 'favorite') and not allowed(user,node.space,'edit'): return False
+    if node.space.visibility == 'public' and action in ('export', 'favorite') and not node_allowed(user,node,'edit'): return False
     base_action=ACTION_BASE.get(action,action)
     groups=organization_group_ids(user)
     cursor=node
