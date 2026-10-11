@@ -1,7 +1,7 @@
-{% extends 'base.html' %}
+{% extends manual_base_template|default:'base.html' %}
 {% load static %}
 {% block title %}{{ space.name }} · 매뉴얼 · ManualBook{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/manuals.css' %}?v=20261010-space-ui">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/manuals.css' %}?v=20261011-public">{% endblock %}
 {% block content %}
 <section class="manual-space-page" aria-labelledby="manual-space-title">
   <div class="page-header">
@@ -9,14 +9,14 @@
       <h1 id="manual-space-title">{{ space.name }}</h1>
       {% if space.description %}<p class="manual-space-description">{{ space.description }}</p>{% endif %}
     </div>
-    <div class="manual-inline manual-space-toolbar manual-space-actions">
+    {% if not public_reader %}<div class="manual-inline manual-space-toolbar manual-space-actions">
       <a class="btn btn-secondary" href="{% url 'manuals:spaces' %}">공간 목록</a>
       {% if can_edit %}
       <a class="btn btn-primary" href="{% url 'manuals:node_create' space.pk %}">새 문서·폴더</a>
       <a class="btn btn-secondary" href="{% url 'manuals:trash' space.pk %}">휴지통</a>
       {% endif %}
       {% if can_manage %}<a class="btn btn-secondary" href="{% url 'manuals:space_settings' space.pk %}">공간 설정</a>{% endif %}
-    </div>
+    </div>{% endif %}
   </div>
 
   <div class="manual-layout">
@@ -24,12 +24,12 @@
       <div class="manual-space-card-heading"><h2 id="manual-space-tree-title">문서 목차</h2></div>
       <div class="manual-space-tree-list">
         {% for item in nodes %}
-        <div class="manual-tree-item {% if item.parent_id %}manual-tree-child{% endif %} manual-depth-{{ item.depth }}" {% if item.ui_can_move %}draggable="true" data-node-id="{{ item.pk }}" data-kind="{{ item.kind }}" data-move-url="{% url 'manuals:action' item.pk 'move' %}"{% endif %}>
+        <div class="manual-tree-item {% if item.parent_id %}manual-tree-child{% endif %} manual-depth-{{ item.depth }}" {% if item.ui_can_move and not public_reader %}draggable="true" data-node-id="{{ item.pk }}" data-kind="{{ item.kind }}" data-move-url="{% url 'manuals:action' item.pk 'move' %}"{% endif %}>
           {% if item.kind == 'folder' %}
           <strong><span aria-hidden="true">▸</span> {{ item.title }}</strong>
           {% elif item.published_id %}
           <a href="{% url 'manuals:page' item.pk %}"><span aria-hidden="true">▤</span> {{ item.published.title }}</a>
-          {% elif item.ui_can_edit %}
+          {% elif item.ui_can_edit and not public_reader %}
           <a href="{% url 'manuals:edit' item.pk %}"><span aria-hidden="true">▤</span> {{ item.title }} <span class="badge badge-warning">초안</span></a>
           {% endif %}
         </div>
@@ -40,10 +40,10 @@
     </aside>
 
     <section class="card manual-space-documents" aria-labelledby="manual-space-documents-title">
-      <div class="manual-space-card-heading"><h2 id="manual-space-documents-title">문서 관리</h2></div>
+      <div class="manual-space-card-heading"><h2 id="manual-space-documents-title">{% if public_reader %}게시 문서{% else %}문서 관리{% endif %}</h2></div>
       <div class="table-wrap" tabindex="0" role="region" aria-label="문서 관리 목록">
         <table>
-          <thead><tr><th scope="col">제목</th><th scope="col">유형</th><th scope="col">상위 폴더</th><th scope="col">게시 버전</th>{% if show_node_actions %}<th scope="col">관리</th>{% endif %}</tr></thead>
+          <thead><tr><th scope="col">제목</th><th scope="col">유형</th><th scope="col">상위 폴더</th><th scope="col">게시 버전</th>{% if show_node_actions and not public_reader %}<th scope="col">관리</th>{% endif %}</tr></thead>
           <tbody>
             {% for item in nodes %}
             <tr>
@@ -51,7 +51,7 @@
               <td><span class="badge badge-neutral">{{ item.get_kind_display }}</span></td>
               <td>{{ item.parent.title|default:'최상위' }}</td>
               <td>{% if item.published_id %}<span class="badge badge-success">v{{ item.published.number }}</span>{% else %}<span class="badge badge-neutral">미게시</span>{% endif %}</td>
-              {% if show_node_actions %}
+              {% if show_node_actions and not public_reader %}
               <td><div class="row-actions">
                 {% if item.ui_can_edit %}<a class="btn btn-secondary btn-sm" href="{% url 'manuals:node_settings' item.pk %}">설정</a>{% if item.kind == 'page' %}<a class="btn btn-secondary btn-sm" href="{% url 'manuals:edit' item.pk %}">편집</a>{% endif %}{% endif %}
                 {% if item.ui_can_copy %}<form class="manual-inline-form" method="post" action="{% url 'manuals:action' item.pk 'copy' %}">{% csrf_token %}<button class="btn btn-secondary btn-sm" type="submit">복사</button></form>{% endif %}
@@ -59,7 +59,7 @@
               {% endif %}
             </tr>
             {% empty %}
-            <tr><td colspan="{% if show_node_actions %}5{% else %}4{% endif %}" class="manual-space-empty">{% if can_edit %}새 문서를 만들거나 아래에서 파일을 가져오세요.{% else %}열람할 수 있는 문서가 없습니다.{% endif %}</td></tr>
+            <tr><td colspan="{% if show_node_actions and not public_reader %}5{% else %}4{% endif %}" class="manual-space-empty">{% if can_edit %}새 문서를 만들거나 아래에서 파일을 가져오세요.{% else %}열람할 수 있는 문서가 없습니다.{% endif %}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -67,7 +67,7 @@
     </section>
   </div>
 
-  <section class="card manual-space-transfer" aria-labelledby="manual-space-transfer-title">
+  {% if not public_reader %}<section class="card manual-space-transfer" aria-labelledby="manual-space-transfer-title">
     <div class="manual-space-card-heading"><h2 id="manual-space-transfer-title">문서 가져오기·내보내기</h2></div>
     <div class="manual-space-transfer-grid{% if not can_edit %} manual-space-transfer-readonly{% endif %}">
       <div class="manual-space-export">
@@ -88,7 +88,7 @@
       </form>
       {% endif %}
     </div>
-  </section>
+  </section>{% endif %}
 </section>
 <script src="{% static 'js/manuals.js' %}" defer></script>
 {% endblock %}

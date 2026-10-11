@@ -11,7 +11,7 @@ from .scoping import organization_scope
 class OrganizationMiddleware:
     def __init__(self,get_response): self.get_response=get_response
     def __call__(self,request):
-        request.organization=None; request.membership=None
+        request.organization=None; request.membership=None; request.public_read_allowed=False
         match=re.match(r'^/o/([a-zA-Z0-9_-]+)(/.*)?$',request.path_info)
         if not match:
             allowed=request.path_info == '/' or request.path_info.startswith(('/organizations/','/admin/','/static/','/login/','/logout/','/health/'))
@@ -25,7 +25,8 @@ class OrganizationMiddleware:
         org=Organization.objects.filter(slug=match.group(1),active=True).first()
         if not org: raise Http404('조직을 찾을 수 없습니다.')
         inner=match.group(2) or '/'
-        public=inner in ('/login/','/logout/')
+        from .public_access import is_public_read
+        public=inner in ('/login/','/logout/') or is_public_read(request,org,inner)
         if not request.user.is_authenticated and not public:
             return redirect_to_login(request.get_full_path(),'/o/'+org.slug+'/login/')
         member=Membership.all_objects.filter(organization=org,user=request.user,active=True).first() if request.user.is_authenticated else None

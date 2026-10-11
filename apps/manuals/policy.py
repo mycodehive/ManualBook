@@ -4,7 +4,7 @@ from apps.organizations.models import Membership
 from apps.organizations.scoping import current_organization, is_org_admin, organization_group_ids
 from .models import ManualSpace
 
-ACTION_BASE = {'create':'edit','move':'edit','delete':'edit','export':'view','download_attachment':'view'}
+ACTION_BASE = {'create':'edit','move':'edit','delete':'edit','export':'view','download_attachment':'view','favorite':'view'}
 
 def in_scope(obj):
     org = current_organization()
@@ -37,6 +37,7 @@ def allowed(user,space,action='view'):
     groups=organization_group_ids(user)
     manager=space.approve_groups.filter(pk__in=groups).exists()
     editor=space.edit_groups.filter(pk__in=groups).exists()
+    if space.visibility == 'public' and action in ('export', 'favorite') and not (manager or editor): return False
     action=ACTION_BASE.get(action,action)
     if action in ('manage','approve','publish'): return manager
     if action=='edit': return manager or editor
@@ -62,6 +63,7 @@ def node_allowed(user,node,action='view'):
     if not node_integrity(node) or not is_member(user): return False
     if is_org_admin(user): return True
     if not allowed(user,node.space,'view'): return False
+    if node.space.visibility == 'public' and action in ('export', 'favorite') and not allowed(user,node.space,'edit'): return False
     base_action=ACTION_BASE.get(action,action)
     groups=organization_group_ids(user)
     cursor=node

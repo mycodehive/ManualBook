@@ -19,11 +19,12 @@ class ManualScopedForm(forms.ModelForm):
 class SpaceForm(ManualScopedForm):
     class Meta:
         model=ManualSpace
-        fields=['name','description','view_groups','edit_groups','approve_groups','active','require_approval','allow_self_approval']
+        fields=['name','description','visibility','view_groups','edit_groups','approve_groups','active','require_approval','allow_self_approval']
         widgets={name:forms.CheckboxSelectMultiple() for name in ['view_groups','edit_groups','approve_groups']}
-        labels={'name':'공간 이름','description':'설명','view_groups':'열람 그룹','edit_groups':'편집 그룹','approve_groups':'관리·승인 그룹','active':'활성','require_approval':'승인 후 게시','allow_self_approval':'본인 문서 승인 허용'}
+        labels={'name':'공간 이름','description':'설명','visibility':'공개 범위','view_groups':'열람 그룹','edit_groups':'편집 그룹','approve_groups':'관리·승인 그룹','active':'활성','require_approval':'승인 후 게시','allow_self_approval':'본인 문서 승인 허용'}
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self.fields['visibility'].help_text='공개 공간은 로그인 없이 게시된 문서와 첨부파일을 읽을 수 있습니다. 초안과 관리 기능은 공개되지 않습니다.'
         ids=OrganizationGroup.objects.filter(organization=self.organization).values_list('group_id',flat=True)
         for name in ['view_groups','edit_groups','approve_groups']:
             self.fields[name].queryset=Group.objects.filter(pk__in=ids)

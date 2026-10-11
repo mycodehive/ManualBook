@@ -16,12 +16,22 @@ from .models import ManualSpace, ManualNode, ManualRevision, ApprovalRequest, Ma
 from .forms import SpaceForm, NodeForm, PermissionForm
 from .policy import allowed, require, spaces_for, node_visible, node_allowed, require_node, revision_in_scope
 from . import services
+from .public_access import read_view, public_space_visible, public_node_visible, public_nodes, published_attachment
 
 def context(request,space=None):
-    return {'can_create_space':bool(current_organization() and is_org_admin(request.user)), 'manual_spaces':spaces_for(request.user),'space':space,'can_edit':bool(space and allowed(request.user,space,'edit')),'can_manage':bool(space and allowed(request.user,space,'manage'))}
+    public_reader = getattr(request, 'manual_public_reader', False)
+    return {'can_create_space':not public_reader and bool(current_organization() and is_org_admin(request.user)),
+        'manual_spaces':ManualSpace.objects.none() if public_reader else spaces_for(request.user),
+        'space':space,'can_edit':not public_reader and bool(space and allowed(request.user,space,'edit')),
+        'can_manage':not public_reader and bool(space and allowed(request.user,space,'manage')),
+        'public_reader':public_reader, 'is_public_space':bool(space and space.visibility == 'public'),
+        'manual_base_template':'manuals/public_base.html' if public_reader else 'base.html'}
 
 def get_node(request,pk,action='view',include_deleted=False):
     node=get_object_or_404(ManualNode.objects.select_related('space','draft','published','parent'),pk=pk)
+    if getattr(request, 'manual_public_reader', False):
+        if action not in ('view', 'download_attachment') or not public_node_visible(node): raise Http404
+        return node
     require_node(request.user,node,action)
     if not include_deleted and not node_visible(node) and not node_allowed(request.user,node,'edit'): raise Http404
     if node.deleted and not include_deleted: raise Http404
@@ -51,13 +61,19 @@ def space_form(request,pk=None):
         space=form.save(); services.audit(request.user,'manual.space.settings',space); messages.success(request,'공간 설정을 저장했습니다.'); return redirect('manuals:space',pk=space.pk)
     return render(request,'manuals/form.html',{**context(request,space),'form':form,'title':'공간 설정'})
 
-@login_required
+@read_view
 def space(request,pk):
-    obj=get_object_or_404(ManualSpace,pk=pk); require(request.user,obj)
-    nodes=[n for n in obj.nodes.select_related('published','draft','parent') if node_visible(n) and node_allowed(request.user,n) and (node_allowed(request.user,n,'edit') or n.kind=='folder' or n.published_id)]
+    obj=get_object_or_404(ManualSpace,pk=pk)
+    public_reader = getattr(request, 'manual_public_reader', False)
+    if public_reader:
+        if not public_space_visible(obj): raise Http404
+        nodes = public_nodes(obj)
+    else:
+        require(request.user,obj)
+        nodes=[n for n in obj.nodes.select_related('published','draft','parent') if node_visible(n) and node_allowed(request.user,n) and (node_allowed(request.user,n,'edit') or n.kind=='folder' or n.published_id)]
     for node in nodes:
-        node.ui_can_edit = node_allowed(request.user, node, 'edit')
-        node.ui_can_move = node_allowed(request.user, node, 'move')
+        node.ui_can_edit = not public_reader and node_allowed(request.user, node, 'edit')
+        node.ui_can_move = not public_reader and node_allowed(request.user, node, 'move')
         node.ui_can_copy = node.ui_can_edit
     return render(request,'manuals/space.html',{**context(request,obj),'nodes':tree_nodes(nodes),'show_node_actions':any(node.ui_can_edit or node.ui_can_move for node in nodes)})
 
@@ -95,17 +111,23 @@ def descendants(node):
         seen.add(n.pk); count+=1; pending.extend(n.children.all())
     return count
 
-@login_required
+@read_view
 def page(request,pk):
     node=get_node(request,pk)
     if node.kind=='folder': return redirect('manuals:space',pk=node.space_id)
+    public_reader = getattr(request, 'manual_public_reader', False)
     revision=node.published
-    if request.GET.get('draft') and node_allowed(request.user,node,'edit'): revision=node.draft
+    if not public_reader and request.GET.get('draft') and node_allowed(request.user,node,'edit'): revision=node.draft
     if not revision: raise Http404('게시된 문서가 없습니다.')
     revision.html=services.render_markdown(revision.markdown)
-    ManualRecentView.objects.update_or_create(user=request.user,node=node)
+    if not public_reader:
+        ManualRecentView.objects.update_or_create(user=request.user,node=node)
     attachments=node.attachments.filter(revision=revision)
-    return render(request,'manuals/page.html',{**context(request,node.space),'node':node,'revision':revision,'can_edit':node_allowed(request.user,node,'edit'),'is_draft':revision.pk!=node.published_id,'attachments':attachments,'favorite':ManualFavorite.objects.filter(user=request.user,node=node).exists(),'nodes':tree_nodes([n for n in node.space.nodes.select_related('published','parent') if node_visible(n) and node_allowed(request.user,n) and (n.kind=='folder' or n.published_id)])})
+    nodes = public_nodes(node.space) if public_reader else [n for n in node.space.nodes.select_related('published','parent') if node_visible(n) and node_allowed(request.user,n) and (n.kind=='folder' or n.published_id)]
+    return render(request,'manuals/page.html',{**context(request,node.space),'node':node,'revision':revision,
+        'can_edit':not public_reader and node_allowed(request.user,node,'edit'),'is_draft':revision.pk!=node.published_id,
+        'attachments':attachments,'favorite':False if public_reader else ManualFavorite.objects.filter(user=request.user,node=node).exists(),
+        'nodes':tree_nodes(nodes)})
 
 @login_required
 def edit(request,pk):
@@ -188,7 +210,7 @@ def history(request,pk):
 @login_required
 @require_POST
 def favorite(request,pk):
-    node=get_node(request,pk)
+    node=get_node(request,pk, 'favorite')
     if not node.published_id: raise Http404
     obj,created=ManualFavorite.objects.get_or_create(user=request.user,node=node)
     if not created: obj.delete()
@@ -214,10 +236,13 @@ def upload(request,pk):
         messages.success(request,'첨부파일을 포함한 새 초안 버전을 만들었습니다.')
     return redirect('manuals:edit',pk=pk)
 
-@login_required
+@read_view
 def download(request,pk):
     attachment=get_object_or_404(ManualAttachment.objects.select_related('node__space'),pk=pk)
     node=get_node(request,attachment.node_id,'download_attachment')
+    if getattr(request, 'manual_public_reader', False):
+        attachment = published_attachment(attachment)
+        if attachment is None: raise Http404
     if not revision_in_scope(attachment.revision,node): raise Http404
     in_publication = attachment.revision_id == node.published_id or bool(node.published_id and node.published.attachments.filter(file=attachment.file.name).exists())
     if not in_publication and not node_allowed(request.user,node,'edit'): raise Http404
@@ -244,7 +269,7 @@ def export_page(request,pk):
 
 @login_required
 def export_space(request,pk):
-    obj=get_object_or_404(ManualSpace,pk=pk); require(request.user,obj)
+    obj=get_object_or_404(ManualSpace,pk=pk); require(request.user,obj,'export')
     stream=io.BytesIO()
     with zipfile.ZipFile(stream,'w',zipfile.ZIP_DEFLATED) as archive:
         for node in obj.nodes.filter(published__isnull=False).select_related('published','parent'):
