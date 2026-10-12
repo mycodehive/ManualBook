@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='SEOConfiguration',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('id', models.PositiveSmallIntegerField(default=1, editable=False, primary_key=True, serialize=False)),
                 ('site_url', models.URLField(blank=True, max_length=2048, verbose_name='사이트 대표 주소')),
                 ('title', models.CharField(default='ManualBook · 팀의 업무 기준을 한곳에', max_length=200, verbose_name='소개 페이지 제목')),
                 ('description', models.CharField(default='업무 절차와 안내 문서를 한곳에 정리하세요. 조직별 공간, 문서 편집, 검토·승인, 버전 관리와 공개 가이드 공유를 제공합니다.', max_length=500, verbose_name='소개 페이지 설명')),

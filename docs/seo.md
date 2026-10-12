@@ -18,6 +18,7 @@
 
 ```bash
 uv run --frozen python manage.py migrate
+uv run --frozen python manage.py collectstatic --noinput
 ```
 
 웹 서비스를 재시작한 뒤 최고관리자로 설정을 등록하고 `/intro/`, `/robots.txt`, `/sitemap.xml`의 결과를 확인합니다. SEO 설정은 검색 순위나 색인 완료를 보장하지 않습니다. 검색엔진의 재수집 및 외부 캐시 갱신에는 시간이 걸릴 수 있습니다.

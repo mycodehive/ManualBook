@@ -20,6 +20,7 @@ def validate_https_url(value, base=False):
 
 
 class SEOConfiguration(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     site_url = models.URLField('사이트 대표 주소', max_length=2048, blank=True)
     title = models.CharField('소개 페이지 제목', max_length=200, default='ManualBook · 팀의 업무 기준을 한곳에')
     description = models.CharField('소개 페이지 설명', max_length=500, default='업무 절차와 안내 문서를 한곳에 정리하세요. 조직별 공간, 문서 편집, 검토·승인, 버전 관리와 공개 가이드 공유를 제공합니다.')
