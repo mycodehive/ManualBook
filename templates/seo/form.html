@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}{{ title|default:'검색·공유 설정' }} · ManualBook{% endblock %}
-{% block extra_head %}{% load static %}<link rel="stylesheet" href="{% static 'css/seo-settings.css' %}">{% endblock %}
+{% block extra_head %}{% load static %}<link rel="stylesheet" href="{% static 'css/seo-settings.css' %}?v=20261012-image-upload">{% endblock %}
 {% block content %}
 <div class="page-header"><div><h1>{{ title|default:'검색·공유 설정' }}</h1><p>공개 페이지의 메타 정보와 링크 공유 미리보기를 설정합니다.</p></div></div>
 <section class="card">
-  <form method="post" class="platform-form seo-settings-form">
+  <form method="post" enctype="multipart/form-data" class="platform-form seo-settings-form">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
     {% for field in form.hidden_fields %}{{ field }}{% if field.errors %}<div class="field-errors" role="alert">{{ field.errors }}</div>{% endif %}{% endfor %}
@@ -15,6 +15,7 @@
       {% if section.description %}<p class="help-text">{{ section.description }}</p>{% endif %}
       {% for field in section.fields %}
       <div class="form-field{% if field.field.widget.input_type == 'checkbox' %} checkbox-field{% endif %}{% if field.errors %} has-error{% endif %}">
+        {% if field.name == 'og_image' and seo.public_image_path %}<figure class="seo-image-preview"><img src="{{ seo.public_image_path }}" alt="현재 등록된 링크 공유 이미지" loading="lazy"><figcaption>현재 등록된 이미지</figcaption></figure>{% endif %}
         {% if field.field.widget.input_type == 'checkbox' %}<label for="{{ field.id_for_label }}">{{ field.label }} {{ field }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required-indicator" aria-hidden="true"> *</span>{% endif %}</label>{{ field }}{% endif %}
         {% if field.help_text %}<div class="field-help help-text" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}
         {% if field.errors %}<div class="field-errors" role="alert">{{ field.errors }}</div>{% endif %}

@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}검색·공유 설정 · ManualBook{% endblock %}
+{% block extra_head %}{% load static %}<link rel="stylesheet" href="{% static 'css/seo-settings.css' %}?v=20261012-image-upload">{% endblock %}
 {% block content %}
-<div class="page-header"><div><h1>검색·공유 설정</h1><p>사이트 소개와 공개 매뉴얼에 사용할 검색 정보와 링크 미리보기를 관리합니다.</p></div><div class="form-actions"><a class="btn btn-secondary" href="/organizations/">전체 조직 관리</a><a class="btn btn-primary" href="{% url 'seo:edit' %}">{% if seo %}설정 수정{% else %}설정 등록{% endif %}</a></div></div>
+<div class="page-header"><div><h1>검색·공유 설정</h1><p>공개 소개 페이지에 사용할 검색 정보와 링크 미리보기를 관리합니다.</p></div><div class="form-actions"><a class="btn btn-secondary" href="/organizations/">전체 조직 관리</a><a class="btn btn-primary" href="{% url 'seo:edit' %}">{% if seo %}설정 수정{% else %}설정 등록{% endif %}</a></div></div>
 {% if seo %}
 <section class="card" aria-labelledby="seo-meta-title">
   <div class="section-heading"><div><h2 id="seo-meta-title">기본 메타 정보</h2></div></div>
@@ -15,13 +16,16 @@
 </section>
 <section class="card" aria-labelledby="seo-social-title">
   <div class="section-heading"><div><h2 id="seo-social-title">링크 공유 미리보기</h2></div></div>
+  {% if seo.public_image_path %}<figure class="seo-image-preview"><img src="{{ seo.public_image_path }}" alt="등록된 링크 공유 이미지" loading="lazy"><figcaption>업로드한 이미지가 링크 공유에 우선 적용됩니다.</figcaption></figure>{% endif %}
   <div class="table-wrap"><table><tbody>
     <tr><th scope="row">Open Graph 사이트명</th><td>{{ seo.og_site_name|default:'미설정' }}</td></tr>
-    <tr><th scope="row">Open Graph 이미지 URL</th><td>{{ seo.og_image_url|default:'미설정' }}</td></tr>
+    <tr><th scope="row">업로드 이미지</th><td>{% if seo.public_image_path %}<span class="badge badge-success">등록됨</span>{% else %}미등록{% endif %}</td></tr>
+    <tr><th scope="row">외부 이미지 URL</th><td>{{ seo.og_image_url|default:'미설정' }}</td></tr>
     <tr><th scope="row">이미지 크기</th><td>{% if seo.og_image_width and seo.og_image_height %}{{ seo.og_image_width }} × {{ seo.og_image_height }} px{% else %}미설정{% endif %}</td></tr>
     <tr><th scope="row">Twitter 카드</th><td>{{ seo.get_twitter_card_display }}</td></tr>
     <tr><th scope="row">Twitter 계정</th><td>{{ seo.twitter_handle|default:'미설정' }}</td></tr>
   </tbody></table></div>
+  <p class="help-text">업로드 이미지 → 외부 이미지 URL → 기본 소개 이미지 순으로 적용합니다. 업로드 이미지는 공개 주소로 제공됩니다.</p>
 </section>
 <section class="card" aria-labelledby="seo-sitemap-title">
   <div class="section-heading"><div><h2 id="seo-sitemap-title">사이트맵</h2><p>사이트맵에는 공개 소개 페이지(/intro/)를 안내합니다.</p></div></div>

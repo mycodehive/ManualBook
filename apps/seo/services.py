@@ -17,7 +17,7 @@ def intro_metadata(request):
     return {'title': configuration.title, 'description': configuration.description,
         'keywords': configuration.keywords, 'generator': configuration.generator_content if configuration.generator_enabled else '',
         'canonical': absolute_url(request, '/intro/', configuration), 'og_site_name': configuration.og_site_name,
-        'og_image_url': configuration.og_image_url or absolute_url(request, static('intro/images/manualbook_hero.png'), configuration),
+        'og_image_url': absolute_url(request, configuration.public_image_path, configuration) if configuration.public_image_path else configuration.og_image_url or absolute_url(request, static('intro/images/manualbook_hero.png'), configuration),
         'og_image_width': configuration.og_image_width, 'og_image_height': configuration.og_image_height,
         'twitter_card': configuration.twitter_card, 'twitter_handle': configuration.twitter_handle}
 
@@ -31,7 +31,7 @@ def sitemap_xml(request):
 
 def robots_text(request):
     configuration = get_configuration()
-    lines = ['User-agent: *', 'Disallow: /', 'Allow: /intro$', 'Allow: /intro/$', 'Allow: /static/', 'Allow: /robots.txt$', 'Allow: /sitemap.xml$']
+    lines = ['User-agent: *', 'Disallow: /', 'Allow: /intro$', 'Allow: /intro/$', 'Allow: /static/', 'Allow: /seo-images/', 'Allow: /robots.txt$', 'Allow: /sitemap.xml$']
     if configuration.sitemap_enabled:
         lines.append('Sitemap: ' + absolute_url(request, '/sitemap.xml', configuration))
     return '\n'.join(lines) + '\n'

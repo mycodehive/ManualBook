@@ -14,7 +14,7 @@ class OrganizationMiddleware:
         request.organization=None; request.membership=None; request.public_read_allowed=False
         match=re.match(r'^/o/([a-zA-Z0-9_-]+)(/.*)?$',request.path_info)
         if not match:
-            allowed=request.path_info in ('/', '/intro', '/intro/', '/robots.txt', '/sitemap.xml') or request.path_info.startswith(('/organizations/','/admin/','/static/','/login/','/logout/','/health/'))
+            allowed=request.path_info in ('/', '/intro', '/intro/', '/robots.txt', '/sitemap.xml') or request.path_info.startswith(('/organizations/','/seo-images/','/admin/','/static/','/login/','/logout/','/health/'))
             if not allowed:
                 return HttpResponseRedirect('/organizations/' if request.user.is_authenticated else '/login/?next=/organizations/')
             with organization_scope(None): response=self.get_response(request)
