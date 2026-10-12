@@ -4,7 +4,7 @@ from django.contrib.admin.models import LogEntry, ADDITION, CHANGE, DELETION
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, FileResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_safe, require_http_methods
@@ -37,12 +37,19 @@ def detail(request):
 @require_http_methods(['GET', 'HEAD', 'POST'])
 def edit(request):
     obj = SEOConfiguration.objects.filter(pk=1).first()
-    form = SEOConfigurationForm(request.POST if request.method == 'POST' else None, instance=obj or SEOConfiguration(pk=1))
+    old_image_name = obj.og_image.name if obj else ''
+    form = SEOConfigurationForm(request.POST if request.method == 'POST' else None, request.FILES if request.method == 'POST' else None, instance=obj or SEOConfiguration(pk=1))
     if request.method == 'POST' and form.is_valid():
-        with transaction.atomic():
-            saved = form.save()
-            LogEntry.objects.log_actions(user_id=request.user.pk, queryset=[saved], action_flag=CHANGE if obj else ADDITION,
-                change_message='사이트 SEO 설정 저장')
+        try:
+            with transaction.atomic():
+                saved = form.save()
+                LogEntry.objects.log_actions(user_id=request.user.pk, queryset=[saved], action_flag=CHANGE if obj else ADDITION,
+                    change_message='사이트 SEO 설정 저장')
+        except Exception:
+            image = form.instance.og_image
+            if image and image._committed and image.name != old_image_name:
+                image.storage.delete(image.name)
+            raise
         messages.success(request, 'SEO 설정을 저장했습니다.')
         return redirect('seo:detail')
     return render(request, 'seo/form.html', {'object': obj, 'seo': obj, 'form': form, 'form_sections': form.sections,
@@ -81,4 +88,22 @@ def sitemap(request):
         raise Http404
     response = HttpResponse(sitemap_xml(request), content_type='application/xml; charset=utf-8')
     response['Cache-Control'] = 'public, max-age=' + str(configuration.sitemap_cache_seconds)
+    return response
+
+
+@require_safe
+def shared_image(request, token):
+    if getattr(request, 'organization', None) is not None:
+        raise Http404
+    expected = 'seo_public/' + token.hex + '.png'
+    configuration = SEOConfiguration.objects.filter(pk=1, og_image=expected).first()
+    if not configuration:
+        raise Http404
+    try:
+        file = configuration.og_image.open('rb')
+    except (FileNotFoundError, OSError):
+        raise Http404
+    response = FileResponse(file, content_type='image/png')
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Cache-Control'] = 'public, max-age=3600'
     return response

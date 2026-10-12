@@ -14,6 +14,7 @@ urlpatterns = [
     path('intro', intro),
     path('organizations/seo', seo_views.detail),
     path('organizations/seo/', include('apps.seo.urls')),
+    path('seo-images/<uuid:token>/', seo_views.shared_image, name='seo_shared_image'),
     path('robots.txt', seo_views.robots, name='robots'),
     path('sitemap.xml', seo_views.sitemap, name='sitemap'),
     path('health/', lambda request: JsonResponse({'status': 'ok'}), name='health'),

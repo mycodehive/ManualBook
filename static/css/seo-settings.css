@@ -2,3 +2,8 @@
 .seo-settings-form legend { padding: 0 8px; font-weight: 700; }
 .seo-settings-form fieldset > .help-text { margin: 0; }
 @media (max-width: 640px) { .seo-settings-form fieldset.form-field { padding: 14px; } }
+
+.seo-image-preview { margin: 0 0 18px; max-width: 520px; }
+.seo-image-preview img { display: block; width: 100%; max-height: 320px; object-fit: contain; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; background: var(--surface-soft, #f5f7fa); }
+.seo-image-preview figcaption { margin-top: 8px; color: var(--muted, #667085); font-size: 12px; line-height: 1.6; }
+.seo-settings-form input[type="file"] { max-width: 100%; }
