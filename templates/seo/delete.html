@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}검색·공유 설정 삭제 · ManualBook{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>검색·공유 설정 삭제</h1><p>삭제할 설정과 영향을 확인하세요.</p></div></div>
+<section class="card danger-zone">
+  <h2>{{ seo.title|default:'검색·공유 설정' }}</h2>
+  <p>등록된 검색·공유 설정을 삭제하면 기본 메타 정보와 사이트맵 정책으로 되돌아갑니다. 조직과 매뉴얼 문서는 유지됩니다.</p>
+  <form method="post" class="platform-form" data-confirm-delete="등록된 검색·공유 설정을 삭제할까요?">
+    {% csrf_token %}
+    <div class="form-actions"><button class="btn btn-danger" type="submit">설정 삭제</button><a class="btn btn-secondary" href="{% url 'seo:detail' %}">취소</a></div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,4 @@
+.seo-settings-form fieldset.form-field { display: grid; gap: 18px; padding: 20px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.seo-settings-form legend { padding: 0 8px; font-weight: 700; }
+.seo-settings-form fieldset > .help-text { margin: 0; }
+@media (max-width: 640px) { .seo-settings-form fieldset.form-field { padding: 14px; } }

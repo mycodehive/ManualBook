@@ -44,7 +44,7 @@ class IntroductionPageTests(TestCase):
             self.assertTrue(data.startswith(b'\x89PNG\r\n\x1a\n'))
             self.assertContains(response, '/static/' + asset)
         self.assertNotContains(response, 'src="images/')
-        self.assertContains(response, 'content="/static/intro/images/manualbook_hero.png"')
+        self.assertContains(response, 'content="http://testserver/static/intro/images/manualbook_hero.png"')
 
     def test_intro_exemption_is_exact_and_not_available_in_tenant(self):
         for user in (None, self.member, self.admin):
