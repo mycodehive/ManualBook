@@ -118,3 +118,12 @@ class SEOSettingsTests(TestCase):
         configuration.save()
         self.assertEqual(self.client.get('/sitemap.xml').status_code, 404)
         self.assertNotContains(self.client.get('/robots.txt'), 'Sitemap:')
+
+    def test_slashless_entry_and_highest_admin_sidebar_link(self):
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get('/organizations/seo').status_code, 200)
+        for url in ('/organizations/', '/organizations/seo/', '/o/seo-tenant/home/'):
+            self.assertContains(self.client.get(url), 'href="/organizations/seo/"')
+        self.client.force_login(self.manager)
+        self.assertEqual(self.client.get('/organizations/seo').status_code, 403)
+        self.assertNotContains(self.client.get('/o/seo-tenant/home/'), 'href="/organizations/seo/"')

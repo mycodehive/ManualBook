@@ -12,6 +12,7 @@ urlpatterns = [
     path('', entry),
     path('intro/', intro, name='intro'),
     path('intro', intro),
+    path('organizations/seo', seo_views.detail),
     path('organizations/seo/', include('apps.seo.urls')),
     path('robots.txt', seo_views.robots, name='robots'),
     path('sitemap.xml', seo_views.sitemap, name='sitemap'),
