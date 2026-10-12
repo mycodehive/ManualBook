@@ -26,10 +26,10 @@ CSRF_TRUSTED_ORIGINS = [x.strip() for x in get_env('DJANGO_CSRF_TRUSTED_ORIGINS'
 INSTALLED_APPS = [
     'django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes',
     'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles',
-    'apps.organizations.apps.OrganizationsConfig', 'apps.core', 'apps.accounts', 'apps.menus', 'apps.integrations', 'apps.manuals',
+    'apps.organizations.apps.OrganizationsConfig', 'apps.core', 'apps.seo', 'apps.accounts', 'apps.menus', 'apps.integrations', 'apps.manuals',
 ]
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware', 'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.security.SecurityMiddleware', 'apps.seo.middleware.IndexingPolicyMiddleware', 'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware', 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware', 'apps.organizations.middleware.OrganizationMiddleware', 'apps.menus.middleware.MenuAccessMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware', 'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -39,7 +39,7 @@ TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates',
     'DIRS': [BASE_DIR / 'templates'], 'APP_DIRS': True,
     'OPTIONS': {'context_processors': [
         'django.template.context_processors.request', 'django.contrib.auth.context_processors.auth',
-        'django.contrib.messages.context_processors.messages', 'apps.menus.context_processors.navigation', 'apps.organizations.context_processors.organization_context',
+        'django.contrib.messages.context_processors.messages', 'apps.menus.context_processors.navigation', 'apps.organizations.context_processors.organization_context', 'apps.seo.context_processors.seo',
     ]}}]
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'

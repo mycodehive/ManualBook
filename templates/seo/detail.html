@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}검색·공유 설정 · ManualBook{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>검색·공유 설정</h1><p>사이트 소개와 공개 매뉴얼에 사용할 검색 정보와 링크 미리보기를 관리합니다.</p></div><div class="form-actions"><a class="btn btn-secondary" href="/organizations/">전체 조직 관리</a><a class="btn btn-primary" href="{% url 'seo:edit' %}">{% if seo %}설정 수정{% else %}설정 등록{% endif %}</a></div></div>
+{% if seo %}
+<section class="card" aria-labelledby="seo-meta-title">
+  <div class="section-heading"><div><h2 id="seo-meta-title">기본 메타 정보</h2></div></div>
+  <div class="table-wrap"><table><tbody>
+    <tr><th scope="row">사이트 URL</th><td>{{ seo.site_url }}</td></tr>
+    <tr><th scope="row">기본 제목</th><td>{{ seo.title }}</td></tr>
+    <tr><th scope="row">설명</th><td>{{ seo.description|linebreaksbr }}</td></tr>
+    <tr><th scope="row">키워드</th><td>{{ seo.keywords|default:'미설정' }}</td></tr>
+    <tr><th scope="row">Generator 메타 태그</th><td><span class="badge {% if seo.generator_enabled %}badge-success{% else %}badge-neutral{% endif %}">{{ seo.generator_enabled|yesno:'사용,사용 안 함' }}</span>{% if seo.generator_enabled %} {{ seo.generator_content }}{% endif %}</td></tr>
+  </tbody></table></div>
+</section>
+<section class="card" aria-labelledby="seo-social-title">
+  <div class="section-heading"><div><h2 id="seo-social-title">링크 공유 미리보기</h2></div></div>
+  <div class="table-wrap"><table><tbody>
+    <tr><th scope="row">Open Graph 사이트명</th><td>{{ seo.og_site_name|default:'미설정' }}</td></tr>
+    <tr><th scope="row">Open Graph 이미지 URL</th><td>{{ seo.og_image_url|default:'미설정' }}</td></tr>
+    <tr><th scope="row">이미지 크기</th><td>{% if seo.og_image_width and seo.og_image_height %}{{ seo.og_image_width }} × {{ seo.og_image_height }} px{% else %}미설정{% endif %}</td></tr>
+    <tr><th scope="row">Twitter 카드</th><td>{{ seo.get_twitter_card_display }}</td></tr>
+    <tr><th scope="row">Twitter 계정</th><td>{{ seo.twitter_handle|default:'미설정' }}</td></tr>
+  </tbody></table></div>
+</section>
+<section class="card" aria-labelledby="seo-sitemap-title">
+  <div class="section-heading"><div><h2 id="seo-sitemap-title">사이트맵</h2><p>사이트맵에는 공개 소개 페이지(/intro/)를 안내합니다.</p></div></div>
+  <div class="table-wrap"><table><tbody>
+    <tr><th scope="row">사이트맵 사용</th><td><span class="badge {% if seo.sitemap_enabled %}badge-success{% else %}badge-neutral{% endif %}">{{ seo.sitemap_enabled|yesno:'사용,사용 안 함' }}</span></td></tr>
+    <tr><th scope="row">캐시 시간</th><td>{{ seo.sitemap_cache_seconds }}초</td></tr>
+  </tbody></table></div>
+  <p class="help-text">설정은 검색 및 공유용 정보에 적용됩니다. 검색 엔진의 수집·노출 여부와 미리보기 갱신 시점은 각 서비스가 결정합니다.</p>
+</section>
+<section class="card danger-zone"><h2>설정 삭제</h2><p>등록된 검색·공유 설정을 삭제하고 기본 설정으로 되돌립니다.</p><a class="btn btn-danger" href="{% url 'seo:delete' %}">설정 삭제</a></section>
+{% else %}
+<section class="card"><h2>등록된 설정이 없습니다.</h2><p>기본 정보로 운영 중입니다. 사이트 URL과 제목, 설명을 등록해 검색·공유 정보를 설정하세요.</p><a class="btn btn-primary" href="{% url 'seo:edit' %}">설정 등록</a></section>
+{% endif %}
+{% endblock %}
